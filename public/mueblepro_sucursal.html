@@ -4,11 +4,11 @@
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#caa23a">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="CobraPro">
+<meta name="apple-mobile-web-app-title" content="MueblePro">
 <link rel="apple-touch-icon" href="/icon-192.png">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CobraPro Sucursal · Caja</title>
+<title>MueblePro Sucursal · Caja</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
@@ -396,12 +396,12 @@
 <div class="toast" id="toast"></div>
 <script>
 /* ===== Sesión ===== */
-const TOKEN=(()=>{try{return localStorage.getItem('cobrapro_token')}catch(e){return null}})();
-const ME=(()=>{try{return JSON.parse(localStorage.getItem('cobrapro_user')||'null')}catch(e){return null}})();
+const TOKEN=(()=>{try{return localStorage.getItem('mueblepro_token')}catch(e){return null}})();
+const ME=(()=>{try{return JSON.parse(localStorage.getItem('mueblepro_user')||'null')}catch(e){return null}})();
 if(!TOKEN){ location.replace('index.html'); }
-function salir(){ try{localStorage.removeItem('cobrapro_token');localStorage.removeItem('cobrapro_user');}catch(e){} location.replace('index.html'); }
+function salir(){ try{localStorage.removeItem('mueblepro_token');localStorage.removeItem('mueblepro_user');}catch(e){} location.replace('index.html'); }
 if(ME&&ME.nombre){ var _en=document.getElementById('encName'); if(_en)_en.textContent='Caja · '+ME.nombre; }
-const BRAND=(()=>{try{return JSON.parse(localStorage.getItem('cobrapro_brand')||'null')||{nombre:'CobraPro'};}catch(e){return {nombre:'CobraPro'};}})();
+const BRAND=(()=>{try{return JSON.parse(localStorage.getItem('mueblepro_brand')||'null')||{nombre:'MueblePro'};}catch(e){return {nombre:'MueblePro'};}})();
 try{ if(BRAND.nombre){ var _h=document.querySelector('h1'); if(_h)_h.textContent=BRAND.nombre+' · Sucursal'; document.title=BRAND.nombre+' · Sucursal'; } }catch(e){}
 // ===== Motor de cálculo — las tarifas se cargan de la agencia (editable por su admin) =====
 let PROD={
@@ -653,7 +653,7 @@ function enviarWA(){
   const r=window._lastRecibo; if(!r) return;
   if(!r.tel){ toast('El cliente no tiene teléfono'); return; }
   const num=String(r.tel).replace(/\D/g,''); const full=num.startsWith('52')?num:'52'+num;
-  let _ag='Su financiera'; try{ const b=JSON.parse(localStorage.getItem('cobrapro_brand')||'null'); _ag=(b&&b.mostrarMembrete===false)?'':((b&&b.nombre)?b.nombre:'Su financiera'); }catch(e){}
+  let _ag='Su financiera'; try{ const b=JSON.parse(localStorage.getItem('mueblepro_brand')||'null'); _ag=(b&&b.mostrarMembrete===false)?'':((b&&b.nombre)?b.nombre:'Su financiera'); }catch(e){}
   const msg = r.esRefin
     ? `*REFIN aplicado${_ag?' — '+_ag:''}*\n\nCliente: ${r.cliente}\nCrédito anterior: ${r.oldFolio} (liquidado)\nNuevo crédito: ${r.folio}\nMonto del nuevo crédito: ${fmt(r.nuevoMonto)}\nSaldo nuevo: ${r.saldo}\nNeto recibido: ${fmt(r.neto)}\nFecha: ${r.fecha} ${r.hora}\n\nGracias por su confianza.`
     : `*Comprobante de pago${_ag?' — '+_ag:''}*\n\nCliente: ${r.cliente}\nFolio: ${r.folio}\nMonto recibido: ${r.monto}\nForma: ${r.forma}\nSaldo restante: ${r.saldo}\nFecha: ${r.fecha} ${r.hora}\n\nGracias por su pago.`;
@@ -1495,7 +1495,7 @@ _init();
   var st=document.createElement('style'); st.textContent=css; document.head.appendChild(st);
   var fab=document.createElement('button'); fab.id='ayuda-fab'; fab.innerHTML='&#10067;'; fab.title='Ayuda'; document.body.appendChild(fab);
   var pnl=document.createElement('div'); pnl.id='ayuda-pnl';
-  pnl.innerHTML='<div id="ayuda-hd">&#10067; Ayuda CobraPro <b id="ayuda-x">&#10005;</b></div>'
+  pnl.innerHTML='<div id="ayuda-hd">&#10067; Ayuda MueblePro <b id="ayuda-x">&#10005;</b></div>'
     +'<div id="ayuda-sr"><input id="ayuda-q" placeholder="Escribe tu duda\u2026 (recibo, mora, corte\u2026)"><button id="ayuda-ia">&#129302; Preguntar a la IA</button></div>'
     +'<div id="ayuda-list"></div>';
   document.body.appendChild(pnl);
