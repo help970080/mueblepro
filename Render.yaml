@@ -1,0 +1,62 @@
+# MueblePro — Blueprint de Render (ETAPA DE PRUEBAS)
+# Va en la RAÍZ del repo help970080/mueblepro, con el nombre exacto render.yaml
+#
+# OJO: la base va en plan FREE. Es para probar, NO para datos reales.
+# Render la SUSPENDE a los ~30 días y se pierde lo que tenga dentro.
+# Para pasar a producción: cambiar plan a basic-256mb (ver bloque de abajo).
+
+databases:
+  - name: mueblepro-db
+    databaseName: mueblepro
+    user: mueblepro
+    region: oregon               # debe ser la MISMA región del web service
+    plan: free                   # TEMPORAL — expira a los 30 días
+    postgresMajorVersion: "16"
+    # --- PARA PRODUCCIÓN, cambiar las 2 líneas de arriba por: ---
+    # plan: basic-256mb
+    # diskSizeGB: 5              # se puede subir después, NUNCA bajar
+    #
+    # ipAllowList: []            # descomentar = solo conexiones internas.
+    #                            # Ojo: así NO puedes entrar con pgAdmin/psql desde tu PC.
+
+services:
+  - type: web
+    name: mueblepro
+    runtime: node
+    plan: starter                # free también sirve, pero se duerme a los 15 min
+    region: oregon               # misma región que la base
+    branch: main
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+
+      # Se conecta sola a mueblepro-db. No hay que pegar nada a mano.
+      - key: DATABASE_URL
+        fromDatabase:
+          name: mueblepro-db
+          property: connectionString
+
+      # Render lo genera solo, distinto al de CobraPro.
+      - key: JWT_SECRET
+        generateValue: true
+
+      # Se pega a mano al aplicar el Blueprint. NO reuses el de CobraPro.
+      - key: SUPER_PASS
+        sync: false
+
+      # Fotos fuera del bloque JSON -> tabla mp_fotos. Dejar en 1 siempre.
+      - key: FLAG_FOTOS
+        value: "1"
+
+      # Lectura de INE y ayuda con IA. Opcional: sin ella esos dos botones
+      # no funcionan y el resto del sistema sí.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+
+# NO va aquí a propósito:
+#   IVR_API_TOKEN / IVR_BRIDGE_URL -> el bridge del VPS es de CobraPro
+#   FLAG_ESPEJO                    -> tabla mp_movimientos_espejo, activar después
