@@ -4389,6 +4389,29 @@ app.post('/api/catalogo/:id/stock', auth, rol('admin'), (req, res) => {
 });
 
 /* --- Foto de un artículo (con sesión) --- */
+// Imagen binaria para <img src> del panel (con token en querystring, porque un
+// <img> no manda encabezado Authorization). ?n=1..4 = galería; sin n = portada.
+app.get('/api/catalogo/:id/img', async (req, res) => {
+  try { jwt.verify(String(req.query.t || ''), JWT_SECRET); }
+  catch { return res.status(401).end(); }
+  const payload = jwt.decode(String(req.query.t || '')) || {};
+  const blob = payload.tenantId != null ? await getTenant(payload.tenantId) : null;
+  if (!blob) return res.status(404).end();
+  return als.run({ tenantId: +payload.tenantId, db: blob }, async () => {
+    const art = (db.catalogo || []).find(a => a.id === +req.params.id);
+    if (!art) return res.status(404).end();
+    const n = Math.max(0, Math.round(+req.query.n || 0));
+    let img = null;
+    if (n === 0) { const exp = await fotoExpandir(art, ['foto']); img = exp.foto; }
+    else { const g = await _fotosDeLista(art.fotos || []); img = g[n - 1] || null; }
+    if (!img) return res.status(404).end();
+    const m = /^data:([^;]+);base64,(.*)$/s.exec(img);
+    if (!m) return res.status(404).end();
+    res.set('Cache-Control', 'private, max-age=3600');
+    res.type(m[1]).send(Buffer.from(m[2], 'base64'));
+  });
+});
+
 app.get('/api/catalogo/:id/foto', auth, async (req, res) => {
   const art = (db.catalogo || []).find(a => a.id === +req.params.id);
   if (!art) return res.status(404).json({ error: 'Artículo no encontrado' });
