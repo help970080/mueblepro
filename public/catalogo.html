@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Catálogo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#f7f5f0;--surf:#fff;--ink:#231c14;--dim:#6b6152;--faint:#a89e8d;--line:#e8e2d6;--acc:#c47a1a;--acc-d:#9c5f10;--grn:#2d7d46}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:'Sora',system-ui,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  .hero{background:linear-gradient(135deg,var(--acc),var(--acc-d));color:#fff;padding:26px 18px 22px;text-align:center}
+  .hero h1{font-size:1.5rem;font-weight:800;letter-spacing:-.02em}
+  .hero p{font-size:.86rem;opacity:.9;margin-top:3px}
+  .plazo-tabs{display:flex;gap:6px;justify-content:center;margin-top:16px;flex-wrap:wrap}
+  .ptab{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;font-family:inherit;font-size:.82rem;font-weight:600;padding:8px 15px;border-radius:20px;cursor:pointer}
+  .ptab.on{background:#fff;color:var(--acc-d);border-color:#fff}
+  .wrap{max-width:900px;margin:0 auto;padding:16px 14px 40px}
+  .searchbar{display:flex;gap:8px;overflow-x:auto;padding:4px 0 12px;scrollbar-width:none}
+  .searchbar::-webkit-scrollbar{display:none}
+  .chip{white-space:nowrap;font-size:.82rem;font-weight:600;padding:8px 15px;border-radius:20px;border:1px solid var(--line);background:var(--surf);color:var(--dim);cursor:pointer}
+  .chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px}
+  .card{background:var(--surf);border:1px solid var(--line);border-radius:16px;overflow:hidden;cursor:pointer;transition:.14s}
+  .card:active{transform:scale(.98)}
+  .cimg{aspect-ratio:1;background:#f0ece3;position:relative;overflow:hidden;display:grid;place-items:center}
+  .cimg img{width:100%;height:100%;object-fit:cover}
+  .cimg .ni{color:var(--faint);font-size:.78rem}
+  .vbadge{position:absolute;top:8px;right:8px;background:rgba(35,28,20,.8);color:#fff;font-size:.66rem;font-weight:700;padding:3px 8px;border-radius:20px}
+  .cinfo{padding:11px 12px 13px}
+  .ccat{font-size:.66rem;color:var(--acc);font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+  .cnom{font-size:.9rem;font-weight:600;line-height:1.25;margin:2px 0 8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.2em}
+  .csem{font-size:1.15rem;font-weight:800;color:var(--acc-d)}
+  .csem small{font-size:.68rem;color:var(--dim);font-weight:500}
+  .ccont{font-size:.74rem;color:var(--faint);margin-top:1px}
+  .cagot{font-size:.7rem;color:#b23;font-weight:600;margin-top:3px}
+  .loading{text-align:center;padding:70px;color:var(--faint)}
+  .spin{width:28px;height:28px;border:3px solid var(--line);border-top-color:var(--acc);border-radius:50%;animation:sp .7s linear infinite;margin:0 auto 12px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .empty{text-align:center;padding:60px 20px;color:var(--dim)}
+  /* modal detalle */
+  .ov{position:fixed;inset:0;background:rgba(35,28,20,.6);z-index:50;display:none;align-items:flex-end;justify-content:center}
+  .ov.on{display:flex}
+  .sheet{background:var(--surf);width:100%;max-width:560px;max-height:92vh;border-radius:22px 22px 0 0;overflow-y:auto;animation:up .22s ease}
+  @keyframes up{from{transform:translateY(100%)}to{transform:none}}
+  .sh-img{aspect-ratio:4/3;background:#f0ece3;position:relative;display:grid;place-items:center;overflow:hidden}
+  .sh-img img{width:100%;height:100%;object-fit:cover}
+  .sh-gallery{display:flex;gap:6px;padding:10px 16px;overflow-x:auto}
+  .sh-gallery img{width:56px;height:56px;object-fit:cover;border-radius:8px;cursor:pointer;border:2px solid transparent}
+  .sh-gallery img.on{border-color:var(--acc)}
+  .sh-body{padding:6px 18px 22px}
+  .sh-body h2{font-size:1.25rem;font-weight:700;margin-bottom:4px}
+  .sh-cat{font-size:.72rem;color:var(--acc);font-weight:700;text-transform:uppercase}
+  .sh-desc{font-size:.9rem;color:var(--dim);line-height:1.5;margin:12px 0}
+  .sh-precios{background:var(--bg);border-radius:14px;padding:16px;margin:14px 0}
+  .sh-precios .big{font-size:1.7rem;font-weight:800;color:var(--acc-d)}
+  .sh-precios .big small{font-size:.8rem;color:var(--dim);font-weight:500}
+  .sh-row{display:flex;justify-content:space-between;font-size:.86rem;padding:4px 0;color:var(--dim)}
+  .sh-row b{color:var(--ink)}
+  .sh-video{display:block;text-align:center;background:#eee;border-radius:12px;padding:12px;margin:12px 0;text-decoration:none;color:var(--ink);font-weight:600;font-size:.9rem}
+  .wa{display:block;background:#25d366;color:#fff;text-align:center;text-decoration:none;font-weight:700;font-size:1rem;padding:15px;border-radius:13px;margin-top:8px}
+  .sh-x{position:absolute;top:12px;left:12px;background:rgba(255,255,255,.9);width:34px;height:34px;border-radius:50%;display:grid;place-items:center;cursor:pointer;font-size:1.1rem;z-index:2}
+</style>
+</head>
+<body>
+<div class="hero">
+  <h1 id="marca">Catálogo</h1>
+  <p>Llévalo hoy en pagos chiquitos</p>
+  <div class="plazo-tabs" id="ptabs">
+    <button class="ptab" data-p="s16" onclick="setPlazo('s16',this)">16 sem</button>
+    <button class="ptab on" data-p="s17" onclick="setPlazo('s17',this)">17 sem</button>
+    <button class="ptab" data-p="s21" onclick="setPlazo('s21',this)">21 sem</button>
+    <button class="ptab" data-p="s31" onclick="setPlazo('s31',this)">31 sem</button>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="searchbar" id="cats"></div>
+  <div id="cont"><div class="loading"><div class="spin"></div>Cargando catálogo…</div></div>
+</div>
+
+<div class="ov" id="ov"><div class="sheet" id="sheet"></div></div>
+
+<script>
+// tenant desde la URL: ?t=1  (o /catalogo.html?t=1)
+const TID = new URLSearchParams(location.search).get('t') || '1';
+// WhatsApp del vendedor (opcional): ?wa=52735...
+const WA = new URLSearchParams(location.search).get('wa') || '';
+let PLAZO='s17', CATF='', DATA=[], MARCA='Catálogo';
+
+async function cargar(){
+  try{
+    const r=await fetch(`/api/publico/${encodeURIComponent(TID)}/catalogo?plazo=${PLAZO}`);
+    if(!r.ok) throw new Error('No se encontró el catálogo');
+    const d=await r.json();
+    MARCA=d.marca||'Catálogo'; document.getElementById('marca').textContent=MARCA; document.title=MARCA;
+    DATA=d.articulos||[];
+    // categorías con al menos un artículo
+    const cats=[...new Set(DATA.map(a=>a.categoria))];
+    document.getElementById('cats').innerHTML=`<div class="chip on" onclick="setCat('',this)">Todo</div>`+
+      cats.map(c=>`<div class="chip" onclick="setCat('${c}',this)">${c}</div>`).join('');
+    render();
+  }catch(e){ document.getElementById('cont').innerHTML=`<div class="empty">${e.message}</div>`; }
+}
+function setPlazo(p,el){ PLAZO=p; document.querySelectorAll('.ptab').forEach(x=>x.classList.remove('on')); el.classList.add('on'); cargar(); }
+function setCat(c,el){ CATF=c; document.querySelectorAll('#cats .chip').forEach(x=>x.classList.remove('on')); el.classList.add('on'); render(); }
+const money=n=>'$'+(Number(n)||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:0});
+function esc(s){return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+
+function render(){
+  let list=DATA.slice();
+  if(CATF) list=list.filter(a=>a.categoria===CATF);
+  const cont=document.getElementById('cont');
+  if(!list.length){ cont.innerHTML='<div class="empty">Sin artículos en esta categoría.</div>'; return; }
+  cont.innerHTML='<div class="grid">'+list.map(a=>{
+    const img=a.tieneFoto?`<img src="/api/publico/${TID}/foto/${a.id}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=ni>Sin foto</div>'">`:'<div class="ni">Sin foto</div>';
+    return `<div class="card" onclick='verDetalle(${a.id})'>
+      <div class="cimg">${img}${a.videoUrl?'<span class="vbadge">▶ video</span>':''}</div>
+      <div class="cinfo">
+        <div class="ccat">${esc(a.categoria)}</div>
+        <div class="cnom">${esc(a.nombre)}</div>
+        <div class="csem">${money(a.pagoSemanal)}<small>/sem</small></div>
+        <div class="ccont">o ${money(a.precioContado)} de contado</div>
+        ${a.disponible?'':'<div class="cagot">Sobre pedido</div>'}
+      </div>
+    </div>`;
+  }).join('')+'</div>';
+}
+
+function verDetalle(id){
+  const a=DATA.find(x=>x.id===id); if(!a) return;
+  const nFotos=a.nFotos||(a.tieneFoto?1:0);
+  const galeria = nFotos>1 ? `<div class="sh-gallery" id="gal">${
+    Array.from({length:nFotos}).map((_,i)=>`<img src="/api/publico/${TID}/foto/${a.id}${i?'?n='+i:''}" onclick="cambiarFoto(${a.id},${i},this)" class="${i===0?'on':''}">`).join('')
+  }</div>` : '';
+  const video = a.videoUrl ? `<a class="sh-video" href="${esc(a.videoUrl)}" target="_blank">▶ Ver video del producto</a>` : '';
+  const waMsg = encodeURIComponent(`Hola, me interesa "${a.nombre}" que vi en el catálogo de ${MARCA}. ¿Me das informes?`);
+  const waLink = WA ? `https://wa.me/${WA}?text=${waMsg}` : `https://wa.me/?text=${waMsg}`;
+  document.getElementById('sheet').innerHTML=`
+    <div class="sh-img" id="shimg">
+      <span class="sh-x" onclick="cerrar()">✕</span>
+      ${a.tieneFoto?`<img id="shmain" src="/api/publico/${TID}/foto/${a.id}">`:'<div class="ni">Sin foto</div>'}
+    </div>
+    ${galeria}
+    <div class="sh-body">
+      <div class="sh-cat">${esc(a.categoria)}</div>
+      <h2>${esc(a.nombre)}</h2>
+      ${a.descripcion?`<div class="sh-desc">${esc(a.descripcion)}</div>`:''}
+      ${video}
+      <div class="sh-precios">
+        <div class="big">${money(a.pagoSemanal)}<small> por semana · ${a.pagos} pagos</small></div>
+        <div class="sh-row"><span>Precio a crédito</span><b>${money(a.precioCredito)}</b></div>
+        <div class="sh-row"><span>Precio de contado</span><b>${money(a.precioContado)}</b></div>
+        ${a.engancheMin>0?`<div class="sh-row"><span>Enganche desde</span><b>${money(a.engancheMin)}</b></div>`:''}
+      </div>
+      <a class="wa" href="${waLink}" target="_blank">💬 Me interesa · pedir informes</a>
+    </div>`;
+  document.getElementById('ov').classList.add('on');
+}
+function cambiarFoto(id,i,el){
+  document.getElementById('shmain').src=`/api/publico/${TID}/foto/${id}${i?'?n='+i:''}`;
+  document.querySelectorAll('#gal img').forEach(x=>x.classList.remove('on')); el.classList.add('on');
+}
+function cerrar(){ document.getElementById('ov').classList.remove('on'); }
+document.getElementById('ov').addEventListener('click',e=>{ if(e.target.id==='ov') cerrar(); });
+
+cargar();
+</script>
+</body>
+</html>

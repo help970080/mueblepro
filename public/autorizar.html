@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Autorizaciones · MueblePro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#eef1f7;--surf-1:#fff;--surf-2:#f1f4f9;--ink:#1b2330;--dim:#5b6675;--faint:#97a2b2;--line:#dde3ec;--acc:#d99a0f;--acc-d:#a87a10;--grn:#178a55;--red:#d6432d;--blu:#2563eb}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:'Sora',system-ui,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:860px;margin:0 auto;padding:18px 16px 70px}
+  header.top{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+  .logo{width:40px;height:40px;border-radius:11px;background:linear-gradient(135deg,var(--acc),var(--acc-d));display:grid;place-items:center;color:#fff;font-weight:700;font-size:1.15rem}
+  .htxt h1{font-size:1.12rem;font-weight:700}
+  .htxt p{font-size:.78rem;color:var(--dim)}
+  .top a{margin-left:auto;font-size:.82rem;color:var(--dim);text-decoration:none;font-weight:600}
+  .count{background:var(--surf-1);border:1px solid var(--line);border-radius:12px;padding:12px 16px;margin-bottom:16px;font-size:.9rem;color:var(--dim)}
+  .count b{color:var(--ink);font-size:1.1rem}
+
+  .venta{background:var(--surf-1);border:1px solid var(--line);border-radius:14px;margin-bottom:14px;overflow:hidden}
+  .vhead{padding:14px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--line);cursor:pointer}
+  .vhead:hover{background:var(--surf-2)}
+  .vfolio{font-weight:700;font-size:.92rem}
+  .vcli{flex:1}
+  .vcli .n{font-weight:600;font-size:.95rem}
+  .vcli .d{font-size:.76rem;color:var(--faint)}
+  .vmonto{text-align:right}
+  .vmonto .m{font-weight:700;font-size:1rem}
+  .vmonto .s{font-size:.72rem;color:var(--dim)}
+  .chev{color:var(--faint);transition:.2s;font-size:1.1rem}
+  .venta.open .chev{transform:rotate(90deg)}
+  .vbody{display:none;padding:16px;background:var(--surf-2)}
+  .venta.open .vbody{display:block}
+  .det{display:grid;grid-template-columns:1fr 1fr;gap:10px 20px;font-size:.85rem;margin-bottom:14px}
+  .det .k{color:var(--faint);font-size:.72rem;text-transform:uppercase;letter-spacing:.03em}
+  .det .v{font-weight:600;margin-top:1px}
+  .arts{background:var(--surf-1);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:14px}
+  .arts .a{display:flex;justify-content:space-between;padding:4px 0;font-size:.86rem}
+  .gpsbtn{display:inline-flex;align-items:center;gap:5px;font-size:.8rem;color:var(--blu);text-decoration:none;font-weight:600;margin-top:2px}
+  .row-cob{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+  .row-cob label{font-size:.8rem;color:var(--dim);font-weight:600}
+  .row-cob select{flex:1;min-width:160px;font-family:inherit;font-size:.88rem;border:1px solid var(--line);background:var(--surf-1);color:var(--ink);padding:9px 11px;border-radius:9px}
+  .acts{display:flex;gap:10px}
+  .btn{flex:1;font-family:inherit;font-weight:700;font-size:.92rem;padding:13px;border-radius:11px;cursor:pointer;border:none}
+  .btn-ok{background:linear-gradient(135deg,var(--grn),#0f6b41);color:#fff}
+  .btn-no{background:var(--surf-1);color:var(--red);border:1px solid #f0c4bc}
+  .btn:active{transform:translateY(1px)}
+  .btn:disabled{opacity:.5}
+  .empty{text-align:center;padding:70px 20px;color:var(--dim)}
+  .empty .big{font-size:2.4rem;margin-bottom:10px}
+  .empty h3{font-size:1.05rem;color:var(--ink);margin-bottom:5px}
+  .loading{text-align:center;padding:60px;color:var(--faint)}
+  .spin{width:26px;height:26px;border:3px solid var(--line);border-top-color:var(--acc);border-radius:50%;animation:sp .7s linear infinite;margin:0 auto 10px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:12px 18px;border-radius:11px;font-size:.86rem;opacity:0;transition:.22s;z-index:100;box-shadow:0 8px 24px rgba(0,0,0,.2);max-width:88%;text-align:center}
+  .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast.err{background:var(--red)}
+  @media(max-width:520px){.det{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="logo">M</div>
+    <div class="htxt"><h1>Autorizaciones</h1><p>Ventas levantadas en calle, esperando tu visto bueno</p></div>
+    <a href="mueblepro.html">← Panel</a>
+  </header>
+
+  <div class="count" id="count">Cargando…</div>
+  <div id="cont"><div class="loading"><div class="spin"></div>Cargando ventas pendientes…</div></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const TOKEN=(()=>{try{return localStorage.getItem('mueblepro_token')}catch(e){return null}})();
+if(!TOKEN){ location.replace('index.html'); }
+let COBS=[];
+
+async function api(method,path,body){
+  const r=await fetch(path,{method,headers:{'Content-Type':'application/json',Authorization:'Bearer '+TOKEN},body:body?JSON.stringify(body):undefined});
+  if(r.status===401){ location.replace('index.html'); throw new Error('Sesión expirada'); }
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(d.error||('Error '+r.status));
+  return d;
+}
+const money=n=>'$'+(Number(n)||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:0});
+function toast(m,e){const t=document.getElementById('toast');t.textContent=m;t.className='toast on'+(e?' err':'');setTimeout(()=>t.className='toast'+(e?' err':''),2800);}
+function esc(s){return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+
+async function cargar(){
+  try{
+    try{ COBS=await api('GET','/api/cobradores'); }catch(e){ COBS=[]; }
+    const d=await api('GET','/api/ventas/pendientes');
+    const list=d.pendientes||[];
+    document.getElementById('count').innerHTML = list.length
+      ? `<b>${list.length}</b> venta${list.length!==1?'s':''} esperando autorización`
+      : 'Todo al día · no hay ventas pendientes';
+    const cont=document.getElementById('cont');
+    if(!list.length){
+      cont.innerHTML=`<div class="empty"><div class="big">✅</div><h3>Nada pendiente</h3><p>Cuando un vendedor levante una venta, aparecerá aquí para tu autorización.</p></div>`;
+      return;
+    }
+    cont.innerHTML=list.map(ventaHTML).join('');
+  }catch(e){
+    document.getElementById('cont').innerHTML=`<div class="empty"><h3>No se pudo cargar</h3><p>${e.message}</p></div>`;
+  }
+}
+
+function ventaHTML(v){
+  const arts=(v.items&&v.items.length)
+    ? v.items.map(i=>`<div class="a"><span>${i.cantidad>1?i.cantidad+' × ':''}${esc(i.nombre)}</span><span>${money(i.precio*i.cantidad)}</span></div>`).join('')
+    : (v.articulos||[]).map(a=>`<div class="a"><span>${esc(a)}</span><span></span></div>`).join('');
+  const gps = (v.lat&&v.lng)
+    ? `<a class="gpsbtn" href="https://www.google.com/maps?q=${v.lat},${v.lng}" target="_blank">📍 Ver en mapa</a>`
+    : '<span style="font-size:.78rem;color:var(--faint)">Sin GPS</span>';
+  const cobOpts=`<option value="">— sin cambiar (${esc(v.cobrador||'sin asignar')}) —</option>`+
+    COBS.map(c=>`<option value="${esc(c.nombre)}"${c.nombre===v.cobrador?' selected':''}>${esc(c.nombre)}</option>`).join('');
+  return `<div class="venta" id="v-${v.id}">
+    <div class="vhead" onclick="document.getElementById('v-${v.id}').classList.toggle('open')">
+      <div class="vfolio">${esc(v.folio)}</div>
+      <div class="vcli"><div class="n">${esc(v.cliente)}</div><div class="d">levantó: ${esc(v.levantadaPor)}</div></div>
+      <div class="vmonto"><div class="m">${money(v.financiado)}</div><div class="s">${v.plazo} sem</div></div>
+      <div class="chev">›</div>
+    </div>
+    <div class="vbody">
+      <div class="det">
+        <div><div class="k">Teléfono</div><div class="v">${esc(v.tel)||'—'}</div></div>
+        <div><div class="k">Domicilio</div><div class="v">${esc(v.domicilio)||'—'} ${gps}</div></div>
+        <div><div class="k">Precio contado</div><div class="v">${money(v.totalContado)}</div></div>
+        <div><div class="k">Enganche</div><div class="v">${money(v.enganche)} <span style="font-weight:400;color:var(--faint)">${esc(v.engancheForma||'')}</span></div></div>
+        <div><div class="k">Se financia</div><div class="v">${money(v.financiado)}</div></div>
+        <div><div class="k">Pago semanal</div><div class="v">${money(v.cuota)} × ${v.plazo}</div></div>
+      </div>
+      <div class="arts">${arts||'<div class="a"><span style="color:var(--faint)">Sin artículos detallados</span></div>'}</div>
+      <div class="row-cob">
+        <label>Cobrador:</label>
+        <select id="cob-${v.id}">${cobOpts}</select>
+      </div>
+      <div class="acts">
+        <button class="btn btn-no" onclick="rechazar(${v.id},'${esc(v.folio)}')">Rechazar</button>
+        <button class="btn btn-ok" onclick="autorizar(${v.id})">Autorizar venta</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function autorizar(id){
+  const cob=document.getElementById('cob-'+id).value;
+  const btns=document.querySelectorAll('#v-'+id+' .btn'); btns.forEach(b=>b.disabled=true);
+  try{
+    const d=await api('POST','/api/ventas/'+id+'/autorizar', cob?{cobrador:cob}:{});
+    toast(`✓ ${d.folio} autorizada${d.cobrador?' · '+d.cobrador:''}`);
+    document.getElementById('v-'+id).remove();
+    setTimeout(cargar,600);
+  }catch(e){ toast(e.message,true); btns.forEach(b=>b.disabled=false); }
+}
+async function rechazar(id,folio){
+  const motivo=prompt(`Rechazar ${folio}.\n\nMotivo (opcional):`);
+  if(motivo===null) return;
+  const btns=document.querySelectorAll('#v-'+id+' .btn'); btns.forEach(b=>b.disabled=true);
+  try{
+    const d=await api('POST','/api/ventas/'+id+'/rechazar',{motivo});
+    toast(`${folio} rechazada${d.engancheADevolver>0?' · devolver enganche '+money(d.engancheADevolver):''}`);
+    document.getElementById('v-'+id).remove();
+    setTimeout(cargar,600);
+  }catch(e){ toast(e.message,true); btns.forEach(b=>b.disabled=false); }
+}
+
+cargar();
+setInterval(cargar, 30000);  // refresca cada 30s por si entran ventas nuevas
+</script>
+</body>
+</html>
