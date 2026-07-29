@@ -4,11 +4,11 @@
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#caa23a">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="CobraPro">
+<meta name="apple-mobile-web-app-title" content="MueblePro">
 <link rel="apple-touch-icon" href="/icon-192.png">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>CobraPro · JC</title>
+<title>MueblePro · JC</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
@@ -102,11 +102,11 @@
   <main id="main"><div class="empty">Cargando…</div></main>
 </div>
 <script>
-const TOKEN=(()=>{try{return localStorage.getItem('cobrapro_token')}catch(e){return null}})();
-const ME=(()=>{try{return JSON.parse(localStorage.getItem('cobrapro_user')||'null')}catch(e){return null}})();
+const TOKEN=(()=>{try{return localStorage.getItem('mueblepro_token')}catch(e){return null}})();
+const ME=(()=>{try{return JSON.parse(localStorage.getItem('mueblepro_user')||'null')}catch(e){return null}})();
 if(!TOKEN||!ME||ME.rol!=='jc'){ location.replace('index.html'); }
-try{ const b=JSON.parse(localStorage.getItem('cobrapro_brand')||'null'); if(b&&b.nombre){ document.getElementById('jcSub').textContent=b.nombre+' · Jefe de Crédito'; document.title=b.nombre+' · JC'; } }catch(e){}
-function salir(){ try{localStorage.removeItem('cobrapro_token');localStorage.removeItem('cobrapro_user');}catch(e){} location.replace('index.html'); }
+try{ const b=JSON.parse(localStorage.getItem('mueblepro_brand')||'null'); if(b&&b.nombre){ document.getElementById('jcSub').textContent=b.nombre+' · Jefe de Crédito'; document.title=b.nombre+' · JC'; } }catch(e){}
+function salir(){ try{localStorage.removeItem('mueblepro_token');localStorage.removeItem('mueblepro_user');}catch(e){} location.replace('index.html'); }
 function money(n){ return '$'+Math.round(n||0).toLocaleString('es-MX'); }
 function toast(m){ const t=document.createElement('div'); t.className='toast'; t.textContent=m; document.body.appendChild(t); setTimeout(()=>t.remove(),2600); }
 async function api(method,path,body){
