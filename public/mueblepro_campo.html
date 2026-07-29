@@ -4,11 +4,11 @@
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#caa23a">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="CobraPro">
+<meta name="apple-mobile-web-app-title" content="MueblePro">
 <link rel="apple-touch-icon" href="/icon-192.png">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>CobraPro Campo · Cobrador</title>
+<title>MueblePro Campo · Cobrador</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
@@ -231,13 +231,13 @@
 
 <script>
 /* ===== Sesión ===== */
-const TOKEN=(()=>{try{return localStorage.getItem('cobrapro_token')}catch(e){return null}})();
-const ME=(()=>{try{return JSON.parse(localStorage.getItem('cobrapro_user')||'null')}catch(e){return null}})();
+const TOKEN=(()=>{try{return localStorage.getItem('mueblepro_token')}catch(e){return null}})();
+const ME=(()=>{try{return JSON.parse(localStorage.getItem('mueblepro_user')||'null')}catch(e){return null}})();
 if(!TOKEN){ location.replace('index.html'); }
-function salir(){ try{localStorage.removeItem('cobrapro_token');localStorage.removeItem('cobrapro_user');}catch(e){} location.replace('index.html'); }
+function salir(){ try{localStorage.removeItem('mueblepro_token');localStorage.removeItem('mueblepro_user');}catch(e){} location.replace('index.html'); }
 if(ME&&ME.nombre){ var _cn=document.getElementById('cobName'); if(_cn)_cn.textContent=ME.nombre;
   var _ca=document.getElementById('cobAva'); if(_ca)_ca.textContent=ME.nombre.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase(); }
-try{ var _b=JSON.parse(localStorage.getItem('cobrapro_brand')||'null'); if(_b&&_b.nombre) document.title=_b.nombre+' · Cobrador'; }catch(e){}
+try{ var _b=JSON.parse(localStorage.getItem('mueblepro_brand')||'null'); if(_b&&_b.nombre) document.title=_b.nombre+' · Cobrador'; }catch(e){}
 (async()=>{ try{
   if(ME&&ME.sucursalId){ const sucs=await api('GET','/api/sucursales'); const s=sucs.find(x=>x.id===ME.sucursalId);
     var _r=document.getElementById('rutaName'); if(_r) _r.textContent='Ruta '+(s?s.nombre:'—'); }
@@ -514,7 +514,7 @@ async function estadoCuenta(saleId){
   let d;
   try{ d=await api('GET','/api/sales/'+saleId+'/movimientos'); }
   catch(e){ toast('No se pudo cargar el estado de cuenta: '+e.message); return; }
-  let brand='CobraPro'; try{ const b=JSON.parse(localStorage.getItem('cobrapro_brand')||'null'); if(b&&b.nombre) brand=b.nombre; }catch(e){}
+  let brand='MueblePro'; try{ const b=JSON.parse(localStorage.getItem('mueblepro_brand')||'null'); if(b&&b.nombre) brand=b.nombre; }catch(e){}
   const filas=(d.movimientos||[]).map(m=>`<tr><td>${m.fecha||''}</td><td>${m.concepto||(m.abono>0?'Abono':'Cargo')}</td><td style="text-align:right">${m.cargo>0?'$'+Math.round(m.cargo).toLocaleString('es-MX'):''}</td><td style="text-align:right">${m.abono>0?'$'+Math.round(m.abono).toLocaleString('es-MX'):''}</td><td style="text-align:right">$${Math.round(m.saldo).toLocaleString('es-MX')}</td></tr>`).join('');
   const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Estado de cuenta</title>
   <style>body{font-family:Arial,sans-serif;color:#1b2330;padding:24px;max-width:760px;margin:auto}h1{font-size:18px;margin:0}.h{border-bottom:2px solid #d99a0f;padding-bottom:10px;margin-bottom:14px}.muted{color:#5b6675;font-size:13px}table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px}th,td{border-bottom:1px solid #dde3ec;padding:7px 8px;text-align:left}th{background:#f1f4f9;font-size:11px;text-transform:uppercase;letter-spacing:.04em}tfoot td{font-weight:bold;border-top:2px solid #1b2330}@media print{button{display:none}}</style></head>
@@ -558,8 +558,8 @@ function confirmarCobro(){
   document.getElementById('overlay').classList.add('on');
   render();
 }
-function _brand(){ try{ const b=JSON.parse(localStorage.getItem('cobrapro_brand')||'null'); return (b&&b.nombre)?b.nombre:'Su financiera'; }catch(e){ return 'Su financiera'; } }
-function _marca(){ try{ const b=JSON.parse(localStorage.getItem('cobrapro_brand')||'null'); if(b&&b.mostrarMembrete===false) return ''; return (b&&b.nombre)?b.nombre:'Su financiera'; }catch(e){ return 'Su financiera'; } }
+function _brand(){ try{ const b=JSON.parse(localStorage.getItem('mueblepro_brand')||'null'); return (b&&b.nombre)?b.nombre:'Su financiera'; }catch(e){ return 'Su financiera'; } }
+function _marca(){ try{ const b=JSON.parse(localStorage.getItem('mueblepro_brand')||'null'); if(b&&b.mostrarMembrete===false) return ''; return (b&&b.nombre)?b.nombre:'Su financiera'; }catch(e){ return 'Su financiera'; } }
 function enviarWA(){
   const r=window._lastRecibo; if(!r||!r.tel){toast('Cliente sin teléfono');return;}
   const num=String(r.tel).replace(/\D/g,''); const full=num.startsWith('52')?num:'52'+num;
@@ -726,7 +726,7 @@ setInterval(checkMiCorte, 60_000);
   var st=document.createElement('style'); st.textContent=css; document.head.appendChild(st);
   var fab=document.createElement('button'); fab.id='ayuda-fab'; fab.innerHTML='&#10067;'; fab.title='Ayuda'; document.body.appendChild(fab);
   var pnl=document.createElement('div'); pnl.id='ayuda-pnl';
-  pnl.innerHTML='<div id="ayuda-hd">&#10067; Ayuda CobraPro <b id="ayuda-x">&#10005;</b></div>'
+  pnl.innerHTML='<div id="ayuda-hd">&#10067; Ayuda MueblePro <b id="ayuda-x">&#10005;</b></div>'
     +'<div id="ayuda-sr"><input id="ayuda-q" placeholder="Escribe tu duda\u2026 (recibo, mora, corte\u2026)"><button id="ayuda-ia">&#129302; Preguntar a la IA</button></div>'
     +'<div id="ayuda-list"></div>';
   document.body.appendChild(pnl);
