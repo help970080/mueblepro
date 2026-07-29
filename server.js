@@ -689,7 +689,7 @@ app.patch('/api/users/:id', auth, rol('admin'), (req, res) => {
   if (!u) return res.status(404).json({ error: 'Usuario no encontrado' });
   if (typeof req.body.activo === 'boolean') u.activo = req.body.activo;
   if (req.body.nombre) u.nombre = String(req.body.nombre).trim();
-  if (req.body.rol && ['admin','supervisor','sucursal','cobrador','jc'].includes(req.body.rol)) u.rol = req.body.rol;
+  if (req.body.rol && ['admin','supervisor','sucursal','cobrador','jc','vendedor'].includes(req.body.rol)) u.rol = req.body.rol;
   if (req.body.sucursalId !== undefined) {
     const sid = req.body.sucursalId === null || req.body.sucursalId === '' ? null : +req.body.sucursalId;
     if ((u.rol === 'cobrador' || u.rol === 'sucursal' || u.rol === 'jc') && !sid) return res.status(400).json({ error: 'Un cobrador, JC o usuario de sucursal debe tener una sucursal asignada.' });
@@ -1532,7 +1532,7 @@ app.post('/api/buro/solicitud/:id/declinar', auth, rol('admin', 'supervisor'), (
   res.json({ ok: true });
 });
 
-app.post('/api/sales', auth, rol('admin', 'supervisor', 'sucursal'), (req, res) => {
+app.post('/api/sales', auth, rol('admin', 'supervisor', 'sucursal', 'vendedor'), (req, res) => {
   const { nombre, tel, calle, col, ciudad, estado, curp, sucursalId, prom, tipo, plazo, monto, dias, force, clienteExistenteId, articulos, items, enganche } = req.body;
 
   // === Candado de Buró: solo cliente NUEVO. ROJO bloquea y dispara solicitud de Vo.Bo al admin. ===
@@ -1673,7 +1673,7 @@ app.post('/api/sales', auth, rol('admin', 'supervisor', 'sucursal'), (req, res) 
       const _fEng = ['efectivo', 'transferencia', 'deposito'].includes(req.body.engancheForma) ? req.body.engancheForma : 'efectivo';
       const _sidEng = String(sucCred);
       db.caja[_sidEng] = db.caja[_sidEng] || { inicial: 0, efectivo: 0, banco: 0, entregas: 0, retiros: 0 };
-      if (req.user.rol === 'cobrador') {
+      if (req.user.rol === 'cobrador' || req.user.rol === 'vendedor') {
         if (_fEng === 'efectivo') {
           const pe = db.porEntregar.find(p => p.prom === req.user.nombre && String(p.sucursalId) === _sidEng);
           if (pe) pe.monto += _enganche;
@@ -1689,11 +1689,26 @@ app.post('/api/sales', auth, rol('admin', 'supervisor', 'sucursal'), (req, res) 
     }
   }
   if (r.descuentaPP) { sale.primerPago = r.primerPago; sale.descuentaPP = true; sale.entregaMonto = r.entregaCliente; }
+  /* --- Autorización (MueblePro) ---
+     Una venta levantada por un VENDEDOR de calle nace PENDIENTE: no genera cartera
+     ni entrega hasta que un admin/supervisor la autoriza. Las de admin/sucursal
+     entran autorizadas de una vez (como siempre). El enganche SÍ se cobra al
+     levantarla (ya quedó en "por entregar" o caja): autorizar es aprobar el crédito,
+     no el dinero que el cliente ya dejó. */
+  const _requiereAut = req.user.rol === 'vendedor';
+  sale.estadoAut = _requiereAut ? 'pendiente' : 'autorizada';
+  if (_requiereAut) {
+    sale.levantadaPor = req.user.nombre;
+    sale.entregado = false;   // no pasa a entregas hasta autorizar
+  }
   db.sales.push(sale);
-  movAdd({ id: nextId('movimientos'), saleId: sale.id, fecha: fechaMxHoyDDMM(), concepto: 'Disposición de crédito', origen: 'Sucursal', cargo: r.total, abono: 0 });
+  // El cargo del crédito a cartera SOLO se genera si ya está autorizada.
+  if (!_requiereAut) {
+    movAdd({ id: nextId('movimientos'), saleId: sale.id, fecha: fechaMxHoyDDMM(), concepto: 'Disposición de crédito', origen: 'Sucursal', cargo: r.total, abono: 0 });
   // Productos que descuentan el primer pago: se registra de inmediato como abono (el cliente recibe monto − primer pago)
-  if (r.descuentaPP && r.primerPago > 0) {
-    movAdd({ id: nextId('movimientos'), saleId: sale.id, fecha: fechaMxHoyDDMM(), concepto: 'Primer pago descontado al inicio', origen: 'Origen del crédito', cargo: 0, abono: r.primerPago, forma: 'descuento', sucursalCobro: sucCred, sucursalCredito: sucCred });
+    if (r.descuentaPP && r.primerPago > 0) {
+      movAdd({ id: nextId('movimientos'), saleId: sale.id, fecha: fechaMxHoyDDMM(), concepto: 'Primer pago descontado al inicio', origen: 'Origen del crédito', cargo: 0, abono: r.primerPago, forma: 'descuento', sucursalCobro: sucCred, sucursalCredito: sucCred });
+    }
   }
   saveDB();
   const nCreditos = db.sales.filter(s => s.clientId === client.id).length;
@@ -4176,6 +4191,79 @@ app.post('/api/transferencias/lote', auth, rol('admin', 'supervisor'), (req, res
 /* MÓDULO DE VOZ / IVR: ELIMINADO en MueblePro.
    Llamaba al bridge Zadarma del VPS (ivr.legaxia.uk) con el token de CobraPro.
    Fuera de aquí, este sistema no habla con ninguna infraestructura de CobraPro. */
+
+/* ==================== AUTORIZACIÓN DE VENTAS (MueblePro) ====================
+   El vendedor levanta; el gerente aprueba. Una venta pendiente no genera cartera
+   ni pasa a entregas hasta que se autoriza. Rechazarla la cancela y regresa el
+   stock apartado. El enganche ya cobrado NO se toca aquí (es dinero del cliente,
+   se maneja como devolución aparte si el gerente lo decide).
+   ========================================================================= */
+
+/* Bandeja: ventas esperando autorización */
+app.get('/api/ventas/pendientes', auth, rol('admin', 'supervisor'), (req, res) => {
+  const pend = db.sales.filter(s => s.estadoAut === 'pendiente').map(s => {
+    const c = db.clients.find(x => x.id === s.clientId) || {};
+    return {
+      id: s.id, folio: s.folio, fecha: s.createdAt,
+      cliente: c.nombre || '', tel: c.tel || '',
+      domicilio: [c.calle, c.col, c.ciudad].filter(Boolean).join(', '),
+      lat: c.lat, lng: c.lng,
+      levantadaPor: s.levantadaPor || s.prom || '',
+      cobrador: s.prom || '', sucursalId: s.sucursalId,
+      tipo: s.tipo, plazo: s.plazo,
+      totalContado: s.totalContado, enganche: s.enganche, engancheForma: s.engancheForma,
+      financiado: s.monto, total: s.total, cuota: s.cuota, primerPago: s.primerPago,
+      articulos: s.articulos || [], items: s.items || []
+    };
+  });
+  res.json({ pendientes: pend, total: pend.length });
+});
+
+/* Autorizar: la venta entra a cartera y queda lista para entregar */
+app.post('/api/ventas/:id/autorizar', auth, rol('admin', 'supervisor'), (req, res) => {
+  const sale = db.sales.find(s => s.id === +req.params.id);
+  if (!sale) return res.status(404).json({ error: 'Venta no encontrada' });
+  if (sale.estadoAut !== 'pendiente') return res.status(400).json({ error: 'Esta venta no está pendiente de autorización' });
+  // Reasignar cobrador al autorizar (opcional): el gerente decide la ruta.
+  if (req.body.cobrador) {
+    sale.prom = _canonProm(req.body.cobrador);
+    const cobU = db.users.find(u => u.rol === 'cobrador' && u.nombre === sale.prom);
+    if (cobU && cobU.sucursalId) sale.sucursalId = cobU.sucursalId;
+  }
+  sale.estadoAut = 'autorizada';
+  sale.autorizadaPor = req.user.nombre;
+  sale.autorizadaAt = new Date().toISOString();
+  // Ahora sí se genera la cartera (el cargo que se retuvo al levantarla).
+  movAdd({ id: nextId('movimientos'), saleId: sale.id, fecha: fechaMxHoyDDMM(), concepto: 'Disposición de crédito', origen: 'Sucursal', cargo: sale.total, abono: 0 });
+  if (sale.descuentaPP && sale.primerPago > 0) {
+    movAdd({ id: nextId('movimientos'), saleId: sale.id, fecha: fechaMxHoyDDMM(), concepto: 'Primer pago descontado al inicio', origen: 'Origen del crédito', cargo: 0, abono: sale.primerPago, forma: 'descuento', sucursalCobro: sale.sucursalId, sucursalCredito: sale.sucursalId });
+  }
+  logOp('autorizar', String(sale.id), { folio: sale.folio, por: req.user.nombre, cobrador: sale.prom });
+  saveDB();
+  res.json({ ok: true, folio: sale.folio, cobrador: sale.prom });
+});
+
+/* Rechazar: cancela la venta y regresa el stock apartado */
+app.post('/api/ventas/:id/rechazar', auth, rol('admin', 'supervisor'), (req, res) => {
+  const sale = db.sales.find(s => s.id === +req.params.id);
+  if (!sale) return res.status(404).json({ error: 'Venta no encontrada' });
+  if (sale.estadoAut !== 'pendiente') return res.status(400).json({ error: 'Solo se puede rechazar una venta pendiente' });
+  // Devolver existencias que se habían apartado al levantar la venta.
+  if (Array.isArray(sale.items)) {
+    for (const i of sale.items) {
+      const art = (db.catalogo || []).find(a => a.id === i.articuloId);
+      if (art && art.stock != null) art.stock += i.cantidad;
+    }
+  }
+  sale.estadoAut = 'rechazada';
+  sale.rechazadaPor = req.user.nombre;
+  sale.rechazadaAt = new Date().toISOString();
+  sale.motivoRechazo = String(req.body.motivo || '').slice(0, 300);
+  sale.activo = false;   // sale de listados de cartera
+  logOp('rechazar', String(sale.id), { folio: sale.folio, por: req.user.nombre, motivo: sale.motivoRechazo, engancheCobrado: sale.enganche || 0 });
+  saveDB();
+  res.json({ ok: true, folio: sale.folio, engancheADevolver: sale.enganche || 0 });
+});
 
 /* ==================== CATÁLOGO DE ARTÍCULOS (MueblePro) ====================
    Los artículos viven en el bloque JSON del tenant (db.catalogo), igual que
