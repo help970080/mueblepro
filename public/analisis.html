@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CobraPro · Análisis de operación</title>
+<style>
+  :root{ --bg:#0f1216; --surf:#171b21; --surf2:#1e242c; --line:#2a323c; --txt:#e6eaef; --dim:#95a1b0; --faint:#6b7583; --gold:#caa23a; --grn:#22a06b; --red:#e5484d; --amber:#e0a000; --blu:#3b82f6; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font-family:'Segoe UI',system-ui,sans-serif;font-size:14px;line-height:1.5}
+  .wrap{max-width:1100px;margin:0 auto;padding:20px 16px 60px}
+  h1{font-size:1.4rem;margin:0 0 2px} h2{font-size:1rem;margin:0 0 12px}
+  .sub{color:var(--dim);font-size:.85rem;margin-bottom:18px}
+  .card{background:var(--surf);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  input,button{font-family:inherit;font-size:.88rem}
+  input{background:var(--surf2);border:1px solid var(--line);color:var(--txt);padding:9px 11px;border-radius:8px}
+  button{background:var(--gold);color:#1a1206;border:none;padding:9px 15px;border-radius:8px;font-weight:600;cursor:pointer}
+  button.ghost{background:var(--surf2);color:var(--txt);border:1px solid var(--line);padding:4px 10px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+  .metric{background:var(--surf2);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .metric .l{font-size:.72rem;color:var(--faint);text-transform:uppercase;letter-spacing:.03em}
+  .metric .v{font-size:1.5rem;font-weight:700;margin-top:3px}
+  .metric .s{font-size:.75rem;color:var(--dim);margin-top:2px}
+  .g{color:var(--grn)} .r{color:var(--red)} .a{color:var(--amber)} .b{color:var(--blu)}
+  table{width:100%;border-collapse:collapse;font-size:.83rem}
+  th{text-align:left;color:var(--faint);text-transform:uppercase;font-size:.68rem;padding:8px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+  td{padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  .n{text-align:right}
+  .sem{display:inline-block;width:11px;height:11px;border-radius:50%;flex-shrink:0}
+  .bg-ok{background:var(--grn)} .bg-warn{background:var(--amber)} .bg-bad{background:var(--red)}
+  .chip{display:inline-block;padding:1px 7px;border-radius:12px;font-size:.72rem;font-weight:600}
+  .chip.ok{background:rgba(34,160,107,.15);color:#7ee0b0} .chip.warn{background:rgba(224,160,0,.15);color:#f0c860} .chip.bad{background:rgba(229,72,77,.15);color:#f4989b}
+  .diag{font-size:.78rem;color:var(--dim);margin-top:3px}
+  .nm{font-weight:600}
+  .muted{color:var(--faint);font-size:.82rem}
+  .leyenda{font-size:.75rem;color:var(--faint);margin-top:10px}
+  .banner{border-radius:10px;padding:10px 13px;margin-bottom:12px;font-weight:600;font-size:.85rem}
+  .banner.ok{background:rgba(34,160,107,.12);border:1px solid rgba(34,160,107,.4);color:#7ee0b0}
+  .banner.warn{background:rgba(224,160,0,.12);border:1px solid rgba(224,160,0,.4);color:#f0c860}
+  .banner.bad{background:rgba(229,72,77,.12);border:1px solid rgba(229,72,77,.4);color:#f4989b}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📊 Análisis de operación</h1>
+  <div class="sub">Revisión automática de cada cobrador y sucursal: cobranza, mora, venta y débito. Los focos rojos salen primero para que el admin los revise.</div>
+
+  <div class="card">
+    <div class="row">
+      <input id="base" placeholder="URL base (vacío = este dominio)" style="flex:1;min-width:180px">
+      <input id="token" placeholder="Token admin (vacío = sesión actual)" style="flex:1;min-width:180px">
+      <span class="muted">Semana de:</span>
+      <button class="ghost" onclick="navSemana(-7)">◄</button>
+      <input type="date" id="fecha" onchange="cargar()" style="padding:6px 8px">
+      <button class="ghost" onclick="navSemana(7)">►</button>
+      <button class="ghost" onclick="hoySemana()">Actual</button>
+      <button onclick="cargar()">🔄 Analizar</button>
+    </div>
+    <div id="rango" class="muted" style="margin-top:8px"></div>
+    <div class="leyenda">Criterios: cobranza ≥90% bien · 75-90% por mejorar · &lt;75% baja. &nbsp;|&nbsp; mora ≤10% ok · 10-20% alta · &gt;20% crítica.</div>
+  </div>
+
+  <div class="card">
+    <h2>Resumen del equipo</h2>
+    <div class="grid" id="resumen"><div class="muted">Da clic en “Analizar”.</div></div>
+  </div>
+
+  <div class="card">
+    <h2>👤 Cobradores</h2>
+    <div id="cobradores"><div class="muted">Sin datos aún.</div></div>
+  </div>
+
+  <div class="card">
+    <h2>🏢 Sucursales</h2>
+    <div id="sucursales"><div class="muted">Sin datos aún.</div></div>
+  </div>
+
+  <div class="card">
+    <h2>📍 Zonas / colonias por calidad de pago</h2>
+    <div class="muted" style="margin-bottom:8px">Dónde se está deteriorando la cartera. Las colonias con más mora salen primero — candidatas a frenar colocación.</div>
+    <div id="zonas-conf"></div>
+    <div id="zonas"><div class="muted">Sin datos aún.</div></div>
+  </div>
+</div>
+
+<script>
+// ===== Umbrales (ajústalos aquí si tu criterio cambia) =====
+const U = { cobBien:90, cobMal:75, moraAlarma:10, moraGrave:20 };
+
+const $=id=>document.getElementById(id);
+function baseURL(){ const b=$('base').value.trim(); return b?b.replace(/\/$/,''):''; }
+function tok(){ const t=$('token').value.trim(); if(t) return t; try{ return localStorage.getItem('cobrapro_token')||''; }catch(e){ return ''; } }
+function hoyMX(){ return new Date().toLocaleDateString('en-CA',{timeZone:'America/Mexico_City'}); }
+function fmt(n){ return '$'+Math.round(n||0).toLocaleString('es-MX'); }
+let _ref=null;
+
+async function api(path){
+  const r=await fetch(baseURL()+path,{ headers:{ Authorization:'Bearer '+tok() } });
+  if(r.status===401||r.status===403) throw new Error('No autorizado. Inicia sesión como admin o pega tu token.');
+  if(!r.ok){ let m=r.status; try{ const j=await r.json(); m=j.error||m; }catch(e){} throw new Error(m); }
+  return r.json();
+}
+
+function evalCob(p){ if(p>=U.cobBien) return 'ok'; if(p>=U.cobMal) return 'warn'; return 'bad'; }
+function evalMora(p){ if(p<=U.moraAlarma) return 'ok'; if(p<=U.moraGrave) return 'warn'; return 'bad'; }
+function nivel(a,b){ if(a==='bad'||b==='bad') return 'bad'; if(a==='warn'||b==='warn') return 'warn'; return 'ok'; }
+const ord={bad:0,warn:1,ok:2};
+
+// arma el texto de diagnóstico accionable
+function diagTexto(o){
+  const t=[];
+  if(o.cobN==='bad') t.push(`cobranza ${o.pct}% muy baja (meta ${U.cobBien}%)`);
+  else if(o.cobN==='warn') t.push(`cobranza ${o.pct}% por mejorar`);
+  if(o.moraN==='bad') t.push(`mora ${o.mora}% crítica`);
+  else if(o.moraN==='warn') t.push(`mora ${o.mora}% sobre el límite`);
+  if(o.venta===0) t.push('sin colocación');
+  if(o.nopago>0) t.push(`${o.nopago} sin pagar`);
+  if(!t.length) return '✓ En orden: cobranza en meta y mora controlada.';
+  return '⚠ Revisar: '+t.join(' · ')+'.';
+}
+
+function chip(n,txt){ return `<span class="chip ${n}">${txt}</span>`; }
+
+async function cargar(){
+  $('rango').textContent='Consultando…';
+  try{
+    const q='/api/dashboard?periodo=semana'+(_ref?('&ref='+_ref):'');
+    const d=await api(q);
+    // rango de la semana
+    try{ const desde=new Date(String(d.desde).slice(0,10)+'T00:00:00'); const hasta=new Date(desde.getTime()+6*86400000); const f=x=>x.toLocaleDateString('es-MX',{day:'2-digit',month:'short'}); $('rango').innerHTML=(_ref?'':'<span class="g">(semana actual)</span> ')+'Semana '+f(desde)+' – '+f(hasta); }catch(e){ $('rango').textContent=''; }
+    const cobs=(d.por_cobrador||[]).filter(c=>(c.clientes||0)>0 || (c.cartera||0)>0);
+    // ---- Cobradores ----
+    const filasCob=cobs.map(c=>{
+      const pct=c.pct_cob||0;
+      const mora=(c.cartera>0)? Math.round((c.atraso_monto/c.cartera)*100):0;
+      const cobN=evalCob(pct), moraN=evalMora(mora), gen=nivel(cobN,moraN);
+      return { ...c, pct, mora, cobN, moraN, gen, venta:c.unidades||0, nopago:c.nopago||0 };
+    }).sort((a,b)=> ord[a.gen]-ord[b.gen] || a.pct-b.pct);
+    // resumen equipo
+    const rojos=filasCob.filter(c=>c.gen==='bad').length, ambar=filasCob.filter(c=>c.gen==='warn').length, verdes=filasCob.filter(c=>c.gen==='ok').length;
+    const promCob= filasCob.length? Math.round(filasCob.reduce((a,c)=>a+c.pct,0)/filasCob.length):0;
+    const carteraTot=filasCob.reduce((a,c)=>a+(c.cartera||0),0), atrasoTot=filasCob.reduce((a,c)=>a+(c.atraso_monto||0),0);
+    const moraTot=carteraTot>0?Math.round(atrasoTot/carteraTot*100):0;
+    $('resumen').innerHTML=[
+      ['Cobradores en rojo', `<span class="r">${rojos}</span>`, rojos?'requieren atención':'ninguno 🎉'],
+      ['Por mejorar', `<span class="a">${ambar}</span>`, 'en amarillo'],
+      ['En orden', `<span class="g">${verdes}</span>`, 'sin focos'],
+      ['Cobranza promedio', promCob+'%', 'del equipo'],
+      ['Mora global', moraTot+'%', fmt(atrasoTot)+' de '+fmt(carteraTot)]
+    ].map(m=>`<div class="metric"><div class="l">${m[0]}</div><div class="v">${m[1]}</div><div class="s">${m[2]}</div></div>`).join('');
+    $('cobradores').innerHTML = filasCob.length? tabla(filasCob,'cobrador') : '<div class="muted">Sin cobradores con cartera esta semana.</div>';
+    // ---- Sucursales ----
+    // % cobranza de sucursal = agregando débito y comisionable de sus cobradores
+    const agg={}; cobs.forEach(c=>{ const k=c.sucursalId; if(!agg[k]) agg[k]={deb:0,com:0}; agg[k].deb+=c.debito||0; agg[k].com+=c.comisionable||0; });
+    const sucs=(d.por_sucursal||[]).filter(s=>(s.creditos||0)>0 || (s.cartera||0)>0).map(s=>{
+      const a=agg[s.id]||{deb:0,com:0};
+      const pct=a.deb>0?Math.round(a.com/a.deb*100):0;
+      const mora=(s.cartera>0)?Math.round((s.atraso_monto/s.cartera)*100):0;
+      const cobN=evalCob(pct), moraN=evalMora(mora), gen=nivel(cobN,moraN);
+      return { id:s.id, nombre:s.nombre, sucursal:s.encargada, cartera:s.cartera, debito:a.deb, atraso_monto:s.atraso_monto, clientes:s.creditos, pct, mora, cobN, moraN, gen, venta:s.creditos_captados||0, nopago:s.nopago||0 };
+    }).sort((a,b)=> ord[a.gen]-ord[b.gen] || a.pct-b.pct);
+    $('sucursales').innerHTML = sucs.length? tabla(sucs,'sucursal') : '<div class="muted">Sin sucursales con cartera.</div>';
+    cargarZonas();
+    $('rango').innerHTML += ' · <span class="muted">actualizado '+new Date().toLocaleTimeString('es-MX')+'</span>';
+  }catch(e){ $('rango').innerHTML='<span class="r">✗ '+e.message+'</span>'; }
+}
+
+async function cargarZonas(){
+  const cont=$('zonas'), conf=$('zonas-conf');
+  cont.innerHTML='<div class="muted">Analizando colonias…</div>'; conf.innerHTML='';
+  try{
+    const d=await api('/api/admin/analisis-zonas');
+    const r=d.resumen||{};
+    // aviso de confiabilidad: si muchos clientes no tienen colonia, el análisis es parcial
+    let cn='ok', ctxt=`Dato confiable: ${r.confiabilidad||0}% de los clientes tiene colonia capturada.`;
+    if((r.confiabilidad||0)<50){ cn='bad'; ctxt=`⚠ Ojo: solo ${r.confiabilidad||0}% de los clientes tiene colonia capturada — este análisis es PARCIAL. Conviene capturar domicilios.`; }
+    else if((r.confiabilidad||0)<80){ cn='warn'; ctxt=`Confiabilidad media: ${r.confiabilidad||0}% tiene colonia. ${r.clientesSinColonia||0} clientes sin colonia quedan agrupados aparte.`; }
+    conf.innerHTML=`<div class="banner ${cn}">${cn==='ok'?'✓':'⚠'} ${ctxt}</div>`;
+    const items=(d.items||[]);
+    if(!items.length){ cont.innerHTML='<div class="muted">Sin cartera para agrupar.</div>'; return; }
+    cont.innerHTML='<div style="overflow-x:auto"><table><thead><tr>'
+      +'<th></th><th>Colonia</th><th>Municipio</th><th class="n">Clientes</th><th class="n">Créditos</th><th class="n">Mora</th><th class="n">Atraso $</th><th class="n">Cartera</th><th>Lectura</th>'
+      +'</tr></thead><tbody>'
+      + items.map(z=>{
+          const moraN=evalMora(z.pct_mora);
+          const chico = z.creditos<3;   // pocas cuentas = estadística débil
+          let lectura;
+          if(!z.tieneCol) lectura='<span class="muted">Domicilios sin colonia — captúralos para evaluar.</span>';
+          else if(moraN==='bad') lectura='<span class="r">🔴 Cartera deteriorada — frenar colocación aquí.</span>';
+          else if(moraN==='warn') lectura='<span class="a">🟡 Vigilar — mora subiendo.</span>';
+          else lectura='<span class="g">🟢 Zona sana.</span>';
+          if(chico && z.tieneCol) lectura+=' <span class="muted">(pocas cuentas)</span>';
+          return `<tr>
+            <td><span class="sem bg-${z.tieneCol?moraN:'warn'}"></span></td>
+            <td class="nm">${z.colonia}</td>
+            <td class="muted">${z.municipio}</td>
+            <td class="n">${z.clientes}</td>
+            <td class="n">${z.creditos}</td>
+            <td class="n">${chip(moraN, z.pct_mora+'%')}</td>
+            <td class="n">${fmt(z.atraso_monto)}</td>
+            <td class="n">${fmt(z.cartera)}</td>
+            <td class="diag">${lectura}</td>
+          </tr>`;
+        }).join('')
+      +'</tbody></table></div>';
+  }catch(e){ cont.innerHTML='<div class="banner bad">✗ '+e.message+' <span class="muted">(requiere el server nuevo con /api/admin/analisis-zonas)</span></div>'; }
+}
+
+function tabla(filas,tipo){
+  const col1 = tipo==='cobrador'?'Cobrador':'Sucursal';
+  const col2 = tipo==='cobrador'?'Sucursal':'Encargada';
+  return '<div style="overflow-x:auto"><table><thead><tr>'
+    +`<th></th><th>${col1}</th><th>${col2}</th><th class="n">Clientes</th><th class="n">Cobranza</th><th class="n">Mora</th><th class="n">Venta</th><th class="n">Débito</th><th class="n">Cartera</th><th>Diagnóstico</th>`
+    +'</tr></thead><tbody>'
+    + filas.map(o=>`<tr>
+        <td><span class="sem bg-${o.gen}"></span></td>
+        <td class="nm">${o.nombre||'—'}</td>
+        <td class="muted">${o.sucursal||'—'}</td>
+        <td class="n">${o.clientes||0}${o.nopago>0?` <span class="muted">(${o.nopago} sin pagar)</span>`:''}</td>
+        <td class="n">${chip(o.cobN,o.pct+'%')}</td>
+        <td class="n">${chip(o.moraN,o.mora+'%')}</td>
+        <td class="n">${o.venta}</td>
+        <td class="n">${fmt(o.debito)}</td>
+        <td class="n">${fmt(o.cartera)}</td>
+        <td class="diag">${diagTexto(o)}</td>
+      </tr>`).join('')
+    +'</tbody></table></div>';
+}
+
+function navSemana(delta){ const f=$('fecha'); const base=(f.value||hoyMX()); const d=new Date(base+'T00:00:00'); d.setDate(d.getDate()+delta); f.value=d.toLocaleDateString('en-CA'); _ref=f.value; cargar(); }
+function hoySemana(){ _ref=null; $('fecha').value=hoyMX(); cargar(); }
+
+(function(){ $('fecha').value=hoyMX(); cargar(); })();
+</script>
+</body>
+</html>

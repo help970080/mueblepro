@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Scorecard semanal · CobraPro</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#eef1f5;color:#111;font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:16px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:#fff;border:1px solid #d8dee6;border-radius:10px;padding:10px 12px;margin-bottom:14px}
+.bar b{font-size:15px;margin-right:6px}
+button{font:inherit;padding:7px 12px;border:1px solid #c3ccd8;background:#fff;border-radius:8px;cursor:pointer}
+button:hover{background:#f4f6f9}
+button.on{background:#12314f;color:#fff;border-color:#12314f}
+button.pr{background:#12314f;color:#fff;border-color:#12314f}
+input[type=date],input[type=number]{font:inherit;padding:6px 8px;border:1px solid #c3ccd8;border-radius:8px}
+.hoja{background:#fff;border:1px solid #d8dee6;border-radius:10px;padding:20px 22px;margin-bottom:16px}
+.enc{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #12314f;padding-bottom:10px;margin-bottom:14px;gap:12px}
+.enc h1{margin:0;font-size:19px;font-weight:600;color:#12314f}
+.enc p{margin:3px 0 0;font-size:12px;color:#667}
+.idx{text-align:right;white-space:nowrap}
+.idx span{display:block;font-size:11px;color:#667;text-transform:uppercase;letter-spacing:.4px}
+.idx strong{font-size:26px;font-weight:600}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(115px,1fr));gap:8px;margin-bottom:16px}
+.kpi{background:#f5f7fa;border-radius:8px;padding:9px 11px}
+.kpi span{display:block;font-size:11px;color:#667}
+.kpi strong{font-size:18px;font-weight:600}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th,td{padding:6px 5px;border-bottom:1px solid #e6eaef;text-align:right;white-space:nowrap}
+th{font-weight:600;color:#556;border-bottom:1px solid #b9c3d0;font-size:11px;vertical-align:bottom}
+th .w{display:block;font-weight:400;color:#8a94a3;font-size:10px}
+th:first-child,td:first-child{text-align:left;white-space:normal}
+tbody tr:hover{background:#f8fafc}
+tr.prom td{background:#f5f7fa;color:#556;font-weight:600;border-bottom:none}
+tr.rojo td:first-child{box-shadow:inset 3px 0 0 #c0392b}
+.g{color:#1e7a4b}.a{color:#9a6b00}.r{color:#c0392b}
+.pt{font-weight:600}
+.mini{font-size:11px;color:#8a94a3}
+.pie{font-size:10px;color:#8a94a3;margin-top:12px;border-top:1px solid #e6eaef;padding-top:8px}
+.cfg{background:#fff;border:1px solid #d8dee6;border-radius:10px;padding:14px;margin-bottom:14px;display:none}
+.cfg table{font-size:12px}
+.cfg td{text-align:left;border-bottom:1px solid #f0f2f5}
+.msg{background:#fff3cd;border:1px solid #ffe08a;border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:13px}
+.msg.err{background:#fdecea;border-color:#f5b7b1}
+@media print{
+ body{background:#fff}
+ .bar,.cfg,.msg{display:none!important}
+ .wrap{max-width:none;padding:0}
+ .hoja{border:none;border-radius:0;padding:0 0 10px;margin:0;page-break-after:always}
+ .hoja:last-child{page-break-after:auto}
+ tbody tr:hover{background:transparent}
+ @page{size:letter landscape;margin:12mm}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="bar">
+  <b>Scorecard</b>
+  <button id="b-suc" class="on" onclick="setNivel('suc')">Sucursales</button>
+  <button id="b-cob" onclick="setNivel('cob')">Cobradores</button>
+  <span style="width:12px"></span>
+  <button onclick="navSem(-1)">◄</button>
+  <input type="date" id="fecha">
+  <button onclick="navSem(1)">►</button>
+  <button onclick="hoySem()">Semana cerrada</button>
+  <button onclick="semViva()">En curso</button>
+  <span style="flex:1"></span>
+  <button onclick="verCfg()">Pesos y metas</button>
+  <button class="pr" onclick="window.print()">Imprimir / PDF</button>
+</div>
+
+<div id="aviso"></div>
+<div id="cfg" class="cfg"></div>
+<div id="salida"></div>
+
+</div>
+
+<script>
+var TOKEN = localStorage.getItem('cobrapro_token') || '';
+var API   = '';
+var _ref  = null;
+var _niv  = 'suc';
+var _prev = {};
+
+var DEF = [
+  {k:'cobranza',  n:'Cobranza',       w:0.30, meta:95,  inv:false, u:'%'},
+  {k:'mora',      n:'Mora',           w:0.15, meta:8,   inv:true,  u:'%'},
+  {k:'cobrados',  n:'Clientes cob.',  w:0.15, meta:90,  inv:false, u:'%'},
+  {k:'coloca',    n:'Colocación',     w:0.15, meta:10,  inv:false, u:'u'},
+  {k:'crece',     n:'Crecimiento',    w:0.10, meta:3,   inv:false, u:'u'},
+  {k:'nopago',    n:'No pago',        w:0.10, meta:10,  inv:true,  u:'%'},
+  {k:'entrega',   n:'Sin entregar',   w:0.05, meta:5,   inv:true,  u:'%'}
+];
+
+function cfgGet(){
+  try{
+    var s = JSON.parse(localStorage.getItem('cobrapro_scorecard')||'null');
+    if(s && s.length===DEF.length) return s;
+  }catch(e){}
+  return JSON.parse(JSON.stringify(DEF));
+}
+function cfgSet(c){ localStorage.setItem('cobrapro_scorecard', JSON.stringify(c)); }
+var CFG = cfgGet();
+
+function $(id){ return document.getElementById(id); }
+function hoyMX(){ return new Date().toLocaleDateString('en-CA',{timeZone:'America/Mexico_City'}); }
+function num(v){ v=Number(v); return isFinite(v)?v:0; }
+function fmt(v){ return '$'+num(v).toLocaleString('es-MX',{maximumFractionDigits:0}); }
+function pc(v,d){ return num(v).toFixed(d===undefined?1:d)+'%'; }
+function esc(s){ var d=document.createElement('div'); d.textContent=(s===null||s===undefined)?'':s; return d.innerHTML; }
+function menos(f,n){ var d=new Date(f+'T00:00:00'); d.setDate(d.getDate()-n); return d.toLocaleDateString('en-CA'); }
+
+function pick(o){
+  for(var i=1;i<arguments.length;i++){
+    var v=o[arguments[i]];
+    if(v!==undefined && v!==null) return num(v);
+  }
+  return 0;
+}
+
+function tiene(o,k){ return o[k]!==undefined && o[k]!==null; }
+
+function metricas(o){
+  // débito/esperado del periodo (sucursal usa esperado_acum, cobrador usa debito)
+  var debito   = pick(o,'debito','esperado_acum','esperado');
+  var cobrado  = pick(o,'comisionable','pagos_recibidos','recuperado');
+  var cartera  = pick(o,'cartera');
+  // mora en $ (sucursal: atraso_monto)
+  var vencida  = pick(o,'vencida','cartera_vencida','atraso_monto','mora_monto','atraso');
+  var vig      = pick(o,'clientes_vigentes','clientes');
+  // clientes que pagaron: cobrador trae clientes_cobrados; sucursal no, se aproxima con npagos
+  var cobrados = tiene(o,'clientes_cobrados') ? num(o.clientes_cobrados) : pick(o,'npagos');
+  var tieneCobrados = tiene(o,'clientes_cobrados') || tiene(o,'npagos');
+  // no pago: cobrador ya trae % en pct? no, trae conteo. sucursal trae conteo. Ambos /vigentes.
+  var nopagoN  = pick(o,'nopago');
+  // colocación (unidades nuevas): cobrador unidades, sucursal creditos_captados
+  var unid     = pick(o,'unidades','creditos_nuevos','creditos_captados');
+  var tieneColoca = tiene(o,'unidades') || tiene(o,'creditos_nuevos') || tiene(o,'creditos_captados');
+  // crecimiento neto: solo existe a nivel cobrador
+  var crece    = pick(o,'crecimiento');
+  var tieneCrece = tiene(o,'crecimiento');
+  var entregar = pick(o,'por_entregar');
+
+  var mCob = tiene(o,'pct_cob') ? num(o.pct_cob) : (debito>0? cobrado/debito*100 : 0);
+
+  return {
+    cobranza: mCob,
+    mora:     cartera>0 ? vencida/cartera*100 : 0,
+    cobrados: vig>0 ? cobrados/vig*100 : 0,
+    coloca:   unid,
+    crece:    crece,
+    nopago:   vig>0 ? nopagoN/vig*100 : 0,
+    entrega:  cobrado>0 ? entregar/cobrado*100 : 0,
+    _debito:debito,_cobrado:cobrado,_cartera:cartera,_vencida:vencida,
+    _vig:vig,_cobrados:cobrados,_nopago:nopagoN,_unid:unid,_entregar:entregar,
+    _muerto: (debito<=0 && cartera<=0 && cobrado<=0),
+    _ok: {
+      cobranza: debito>0,
+      mora:     cartera>0,
+      cobrados: vig>0 && tieneCobrados,
+      coloca:   tieneColoca,
+      crece:    tieneCrece,
+      nopago:   vig>0,
+      entrega:  cobrado>0
+    }
+  };
+}
+
+function puntos(val,c){
+  var meta = num(c.meta);
+  if(meta<=0) return 0;
+  var p;
+  if(c.inv) p = (2*meta - num(val)) / meta;
+  else      p = num(val) / meta;
+  if(p<0) p=0;
+  if(p>1.2) p=1.2;
+  return p*100;
+}
+
+function indice(m){
+  if(m._muerto) return 0;
+  var t=0, wt=0;
+  for(var i=0;i<CFG.length;i++){
+    var c=CFG[i];
+    if(m._ok && m._ok[c.k]===false) continue;
+    t  += puntos(m[c.k],c) * num(c.w);
+    wt += num(c.w);
+  }
+  return wt>0 ? t/wt : 0;
+}
+
+function clase(val,c){
+  var p = puntos(val,c);
+  return p>=95 ? 'g' : (p>=80 ? 'a' : 'r');
+}
+
+async function jget(url){
+  var r = await fetch(API+url,{headers:{Authorization:'Bearer '+TOKEN}});
+  if(r.status===401 || r.status===403) throw new Error('Sesión no válida. Entra a CobraPro como admin en esta misma pestaña y recarga.');
+  if(!r.ok) throw new Error('HTTP '+r.status+' en '+url);
+  return await r.json();
+}
+
+function filas(d,niv){
+  if(niv==='cob'){
+    var c = d.por_cobrador||d.cobradores||[];
+    return Array.isArray(c)?c:[];
+  }
+  // Nivel sucursal: derivar de la suma de cobradores (el esperado_acum del
+  // endpoint por_sucursal viene inflado; el débito bueno vive en por_cobrador).
+  var cobs = d.por_cobrador||d.cobradores||[];
+  var sucs = d.por_sucursal||d.sucursales||[];
+  if(!Array.isArray(cobs)||!cobs.length){ return Array.isArray(sucs)?sucs:[]; }
+
+  var meta = {};
+  (Array.isArray(sucs)?sucs:[]).forEach(function(s){
+    meta[String(s.id)] = s;
+    if(s.nombre) meta['n:'+s.nombre] = s;
+  });
+
+  var g = {};
+  cobs.forEach(function(c){
+    var sid = (c.sucursalId!==undefined&&c.sucursalId!==null)?String(c.sucursalId):null;
+    var key = sid || ('n:'+(c.sucursal||'—'));
+    if(!g[key]){
+      var ref = (sid && meta[sid]) || meta['n:'+(c.sucursal||'')] || {};
+      g[key] = {
+        id: (ref.id!==undefined?ref.id:(sid||key)),
+        nombre: c.sucursal || ref.nombre || '—',
+        encargada: ref.encargada || ref.responsable || '',
+        debito:0, comisionable:0, pagos_recibidos:0, cartera:0,
+        atraso_monto:0, clientes_vigentes:0, npagos:0, nopago:0,
+        creditos_captados:0, crecimiento:0, por_entregar:0, _cob:0
+      };
+    }
+    var o=g[key];
+    o.debito           += (+c.debito||0);
+    o.comisionable     += (+c.comisionable||0);
+    o.pagos_recibidos  += (+c.pagos_recibidos||0);
+    o.cartera          += (+c.cartera||0);
+    o.atraso_monto     += (+c.atraso_monto||+c.vencida||0);
+    o.clientes_vigentes+= (+c.clientes_vigentes||0);
+    o.npagos           += (+c.npagos||0);
+    o.nopago           += (+c.nopago||0);
+    o.creditos_captados+= (+c.unidades||+c.creditos_captados||0);
+    o.crecimiento      += (+c.crecimiento||0);
+    o.por_entregar     += (+c.por_entregar||0);
+    o.clientes_cobrados = (o.clientes_cobrados||0) + (+c.clientes_cobrados||0);
+    o._cob++;
+  });
+  return Object.keys(g).map(function(k){ return g[k]; });
+}
+function llave(o){ return String(o.id!==undefined?o.id:(o.nombre||'')); }
+
+async function cargar(){
+  $('aviso').innerHTML='';
+  $('salida').innerHTML='<div class="hoja mini">Cargando…</div>';
+  if(!TOKEN){
+    $('salida').innerHTML='';
+    $('aviso').innerHTML='<div class="msg err">No hay sesión. Abre CobraPro, entra como admin y vuelve a esta página.</div>';
+    return;
+  }
+  var ref = _ref || hoyMX();
+  try{
+    var q = '?periodo=semana&ref='+ref;
+    var d = await jget('/api/dashboard'+q);
+    var dp = null;
+    try{ dp = await jget('/api/dashboard?periodo=semana&ref='+menos(ref,7)); }catch(e){ dp=null; }
+
+    _prev = {};
+    if(dp){
+      var fp = filas(dp,_niv).map(function(o){ return {k:llave(o), ix:indice(metricas(o))}; });
+      fp.sort(function(a,b){ return b.ix-a.ix; });
+      for(var i=0;i<fp.length;i++) _prev[fp[i].k]=i+1;
+    }
+    pinta(d,ref,!!dp);
+  }catch(e){
+    $('salida').innerHTML='';
+    $('aviso').innerHTML='<div class="msg err">'+esc(e.message)+'</div>';
+  }
+}
+
+function pinta(d,ref,hayPrev){
+  var raw = filas(d,_niv);
+  if(!raw.length){
+    $('salida').innerHTML='';
+    $('aviso').innerHTML='<div class="msg">La semana del '+ref+' no trae datos en este nivel.</div>';
+    return;
+  }
+
+  var rows = raw.map(function(o){
+    var m = metricas(o);
+    return {o:o, m:m, ix:indice(m), k:llave(o),
+            nombre:o.nombre||o.sucursal||'—',
+            sub:(_niv==='cob'?(o.sucursal||''):(o.encargada||o.responsable||''))};
+  });
+  rows.sort(function(a,b){ return b.ix-a.ix; });
+
+  var acc={}, wsum=0;
+  for(var i=0;i<CFG.length;i++) acc[CFG[i].k]=0;
+  var tot={debito:0,cobrado:0,cartera:0,vencida:0,vig:0,cobrados:0,nopago:0,unid:0,entregar:0};
+  rows.forEach(function(r){
+    tot.debito+=r.m._debito; tot.cobrado+=r.m._cobrado; tot.cartera+=r.m._cartera;
+    tot.vencida+=r.m._vencida; tot.vig+=r.m._vig; tot.cobrados+=r.m._cobrados;
+    tot.nopago+=r.m._nopago; tot.unid+=r.m._unid; tot.entregar+=r.m._entregar;
+  });
+  var okRef = (rows[0]&&rows[0].m._ok) || {};
+  var prom = {
+    cobranza: tot.debito>0? tot.cobrado/tot.debito*100 : 0,
+    mora:     tot.cartera>0? tot.vencida/tot.cartera*100 : 0,
+    cobrados: tot.vig>0? tot.cobrados/tot.vig*100 : 0,
+    coloca:   tot.unid,
+    crece:    rows.reduce(function(a,r){return a+r.m.crece;},0),
+    nopago:   tot.vig>0? tot.nopago/tot.vig*100 : 0,
+    entrega:  tot.cobrado>0? tot.entregar/tot.cobrado*100 : 0,
+    _muerto:false,
+    _ok:{
+      cobranza: tot.debito>0,
+      mora:     tot.cartera>0,
+      cobrados: okRef.cobrados!==false && tot.vig>0,
+      coloca:   okRef.coloca!==false,
+      crece:    okRef.crece!==false,
+      nopago:   tot.vig>0,
+      entrega:  tot.cobrado>0
+    }
+  };
+  var ixGlobal = indice(prom);
+
+  var agencia = d.agencia || d.tenant || (d.totales&&d.totales.agencia) || '';
+  var titulo  = _niv==='cob' ? 'nivel cobrador' : 'nivel sucursal';
+  var enCurso = (ref >= menos(hoyMX(),6));
+  var estado  = enCurso ? 'semana en curso (parcial)' : 'semana cerrada';
+
+  var h = '<div class="hoja">';
+  h += '<div class="enc"><div><h1>Scorecard semanal'+(agencia?' — '+esc(agencia):'')+'</h1>'
+     + '<p>Semana al '+esc(ref)+' · '+estado+' · '+titulo+' · '+rows.length+' unidades'+(hayPrev?'':' · sin comparativo de semana previa')+'</p></div>'
+     + '<div class="idx"><span>Índice global</span><strong>'+ixGlobal.toFixed(1)+'</strong></div></div>';
+
+  h += '<div class="kpis">'
+     + '<div class="kpi"><span>Cartera</span><strong>'+fmt(tot.cartera)+'</strong></div>'
+     + '<div class="kpi"><span>Débito</span><strong>'+fmt(tot.debito)+'</strong></div>'
+     + '<div class="kpi"><span>Cobrado</span><strong>'+fmt(tot.cobrado)+'</strong></div>'
+     + '<div class="kpi"><span>% Cobranza</span><strong>'+pc(prom.cobranza)+'</strong></div>'
+     + '<div class="kpi"><span>Mora</span><strong>'+pc(prom.mora)+'</strong></div>'
+     + '<div class="kpi"><span>Clientes vigentes</span><strong>'+tot.vig.toLocaleString('es-MX')+'</strong></div>'
+     + '<div class="kpi"><span>Colocación</span><strong>'+tot.unid+'</strong></div>'
+     + '</div>';
+
+  h += '<table><thead><tr><th>'+(_niv==='cob'?'Cobrador':'Sucursal')+'</th>';
+  for(var i=0;i<CFG.length;i++){
+    h += '<th>'+esc(CFG[i].n)+'<span class="w">'+num(CFG[i].w).toFixed(2)+' · meta '+num(CFG[i].meta)+(CFG[i].u==='%'?'%':'')+'</span></th>';
+  }
+  h += '<th>Índice</th><th>Rank</th><th>Var</th></tr></thead><tbody>';
+
+  rows.forEach(function(r,idx){
+    var rank = idx+1;
+    var pv = _prev[r.k];
+    var vtx='—', vcl='mini';
+    if(pv){
+      var dv = pv-rank;
+      if(dv>0){ vtx='+'+dv; vcl='g'; }
+      else if(dv<0){ vtx=String(dv); vcl='r'; }
+      else { vtx='0'; vcl='mini'; }
+    }
+    var malo = r.ix<80;
+    h += '<tr class="'+(malo?'rojo':'')+'"><td>'+esc(r.nombre)
+       + (r.sub?'<div class="mini">'+esc(r.sub)+'</div>':'')
+       + (r.m._muerto?'<div class="mini r">sin actividad</div>':'')+'</td>';
+    for(var j=0;j<CFG.length;j++){
+      var c=CFG[j], v=r.m[c.k];
+      if(r.m._ok && r.m._ok[c.k]===false){ h += '<td class="mini">—</td>'; continue; }
+      var txt = c.u==='%' ? pc(v) : String(Math.round(v));
+      h += '<td class="'+clase(v,c)+'">'+txt+'</td>';
+    }
+    h += '<td class="pt">'+r.ix.toFixed(1)+'</td><td>'+rank+'</td><td class="'+vcl+'">'+vtx+'</td></tr>';
+  });
+
+  h += '<tr class="prom"><td>Promedio agencia</td>';
+  for(var k=0;k<CFG.length;k++){
+    var cc=CFG[k], vv=prom[cc.k];
+    if(prom._ok && prom._ok[cc.k]===false){ h += '<td>—</td>'; continue; }
+    h += '<td>'+(cc.u==='%'?pc(vv):String(Math.round(vv)))+'</td>';
+  }
+  h += '<td class="pt">'+ixGlobal.toFixed(1)+'</td><td>—</td><td>—</td></tr>';
+  h += '</tbody></table>';
+
+  h += '<div class="pie">Índice = suma ponderada de cada KPI normalizado contra su meta (tope 120 puntos por KPI). '
+     + 'Verde ≥95 · ámbar 80-94 · rojo &lt;80. Var = cambio de posición contra la semana anterior. '
+     + (_niv==='suc' ? 'Cada sucursal es la suma de sus cobradores. ' : '')
+     + 'Generado el '+new Date().toLocaleString('es-MX')+'.</div>';
+  h += '</div>';
+
+  $('salida').innerHTML = h;
+}
+
+function verCfg(){
+  var c=$('cfg');
+  if(c.style.display==='block'){ c.style.display='none'; return; }
+  var h='<table><tbody>';
+  h+='<tr><td><b>KPI</b></td><td><b>Peso</b></td><td><b>Meta</b></td><td><b>Sentido</b></td></tr>';
+  for(var i=0;i<CFG.length;i++){
+    h+='<tr><td>'+esc(CFG[i].n)+'</td>'
+      +'<td><input type="number" step="0.01" min="0" max="1" style="width:80px" id="w'+i+'" value="'+num(CFG[i].w)+'"></td>'
+      +'<td><input type="number" step="0.5" style="width:80px" id="m'+i+'" value="'+num(CFG[i].meta)+'"> '+(CFG[i].u==='%'?'%':'unid.')+'</td>'
+      +'<td class="mini">'+(CFG[i].inv?'menos es mejor':'más es mejor')+'</td></tr>';
+  }
+  h+='</tbody></table>';
+  h+='<div style="margin-top:10px"><button class="pr" onclick="guardarCfg()">Guardar y recalcular</button> '
+    +'<button onclick="resetCfg()">Volver a los pesos base</button> '
+    +'<span class="mini" id="wsum"></span></div>';
+  c.innerHTML=h;
+  c.style.display='block';
+  sumaPesos();
+  for(var j=0;j<CFG.length;j++){ $('w'+j).oninput=sumaPesos; }
+}
+function sumaPesos(){
+  var s=0;
+  for(var i=0;i<CFG.length;i++) s+=num($('w'+i).value);
+  var e=$('wsum');
+  if(e) e.innerHTML='Suma de pesos: '+s.toFixed(2)+(Math.abs(s-1)>0.001?' (se normaliza sola)':'');
+}
+function guardarCfg(){
+  for(var i=0;i<CFG.length;i++){
+    CFG[i].w    = num($('w'+i).value);
+    CFG[i].meta = num($('m'+i).value);
+  }
+  cfgSet(CFG);
+  $('cfg').style.display='none';
+  cargar();
+}
+function resetCfg(){
+  CFG = JSON.parse(JSON.stringify(DEF));
+  cfgSet(CFG);
+  $('cfg').style.display='none';
+  cargar();
+}
+
+function setNivel(n){
+  _niv=n;
+  $('b-suc').className = n==='suc'?'on':'';
+  $('b-cob').className = n==='cob'?'on':'';
+  cargar();
+}
+function navSem(delta){
+  var base = $('fecha').value || hoyMX();
+  var d = new Date(base+'T00:00:00');
+  d.setDate(d.getDate()+delta*7);
+  $('fecha').value = d.toLocaleDateString('en-CA');
+  _ref = $('fecha').value;
+  cargar();
+}
+function hoySem(){ _ref=menos(hoyMX(),7); $('fecha').value=_ref; cargar(); }
+function semViva(){ _ref=hoyMX(); $('fecha').value=_ref; cargar(); }
+
+_ref = menos(hoyMX(),7);
+$('fecha').value = _ref;
+$('fecha').onchange = function(){ _ref=this.value; cargar(); };
+cargar();
+</script>
+</body>
+</html>

@@ -1,0 +1,157 @@
+<!doctype html><html lang="es"><head>
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#caa23a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="CobraPro">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CobraPro · Panel maestro</title>
+<style>
+:root{--bg:#eef1f7;--surf:#ffffff;--surf-2:#f1f4f9;--line:#dde3ec;--txt:#1b2330;--dim:#5b6675;--faint:#97a2b2;--acc:#d99a0f;--grn:#178a55;--red:#d6432d;}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--txt);font-size:14.5px;min-height:100vh}
+.top{background:linear-gradient(90deg,#1b2330,#2a3547);color:#fff;padding:16px 22px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.top h1{font-size:1.15rem;display:flex;align-items:center;gap:10px}
+.badge{background:var(--acc);color:#1a1408;font-size:.65rem;font-weight:700;padding:3px 8px;border-radius:6px;letter-spacing:.04em}
+.btn{background:var(--surf-2);border:1px solid var(--line);color:var(--txt);padding:9px 14px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:.85rem}
+.btn.gold{background:linear-gradient(180deg,#f0b429,#d99a0f);border-color:var(--acc);color:#1a1408;font-weight:600}
+.btn.lite{background:transparent;border-color:rgba(255,255,255,.3);color:#fff}
+.wrap{max-width:980px;margin:0 auto;padding:22px 18px 60px}
+.panel{background:var(--surf);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:18px}
+.panel h3{font-size:1rem;margin-bottom:4px}
+.panel .sub{color:var(--dim);font-size:.8rem;margin-bottom:16px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field label{font-size:.72rem;color:var(--dim);display:block;margin-bottom:4px}
+.field input{width:100%;padding:10px;background:var(--surf-2);border:1px solid var(--line);border-radius:8px;color:var(--txt);font-family:inherit}
+table{width:100%;border-collapse:collapse;margin-top:6px}
+th{text-align:left;font-size:.7rem;color:var(--faint);text-transform:uppercase;letter-spacing:.04em;padding:8px 10px;border-bottom:1px solid var(--line)}
+td{padding:11px 10px;border-bottom:1px solid var(--line);font-size:.88rem}
+.pill{font-size:.68rem;padding:3px 9px;border-radius:20px;font-weight:600}
+.pill.on{background:#d8f0df;color:var(--grn)}
+.pill.off{background:#fde0db;color:var(--red)}
+.muted{color:var(--faint);font-size:.78rem}
+@media(max-width:680px){.grid{grid-template-columns:1fr}table{display:block;overflow-x:auto;white-space:nowrap}}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1b2330;color:#fff;padding:12px 20px;border-radius:10px;font-size:.85rem;z-index:99;box-shadow:0 6px 24px rgba(0,0,0,.25);max-width:90vw}
+</style></head><body>
+<div class="top">
+  <h1>🛡 CobraPro <span class="badge">PANEL MAESTRO</span></h1>
+  <div style="display:flex;gap:8px;align-items:center"><span id="who" class="muted" style="color:#cbd3df"></span><button class="btn lite" onclick="salir()">Salir</button></div>
+</div>
+<div class="wrap">
+  <div class="panel">
+    <h3>＋ Nueva agencia</h3>
+    <div class="sub">Crea una agencia con su administrador inicial. Ese admin se autogestiona: da de alta sus sucursales, cobradores y tarifas. Sus datos quedan aislados de las demás.</div>
+    <div class="grid">
+      <div class="field"><label>Nombre de la agencia (marca para sus reportes)</label><input id="t-nombre" placeholder="Ej. CREDIA, LA CASITA FELIZ"></div>
+      <div class="field"><label>Nombre del administrador</label><input id="t-admnom" placeholder="Ej. Juan Pérez" value="Administrador"></div>
+      <div class="field"><label>Usuario del admin (único en todo el sistema)</label><input id="t-admuser" placeholder="ej. credia"></div>
+      <div class="field"><label>Contraseña (vacío = se genera una)</label><input id="t-admpass" placeholder="opcional"></div>
+    </div>
+    <button class="btn gold" style="margin-top:14px" onclick="crearAgencia()">Crear agencia</button>
+  </div>
+  <div class="panel">
+    <h3>Agencias registradas</h3>
+    <div class="sub">Cada quien maneja su propia operación. Puedes entrar a una para dar soporte, o suspenderla.</div>
+    <table><thead><tr><th>Agencia</th><th>Usuarios</th><th>Sucursales</th><th>Clientes</th><th>Estado</th><th>Voz</th><th></th></tr></thead><tbody id="tb"></tbody></table>
+  </div>
+</div>
+<script>
+const TOKEN=(()=>{try{return localStorage.getItem('cobrapro_token')}catch(e){return null}})();
+const ME=(()=>{try{return JSON.parse(localStorage.getItem('cobrapro_user')||'null')}catch(e){return null}})();
+if(!TOKEN || !ME || ME.rol!=='super'){ location.replace('index.html'); }
+document.getElementById('who').textContent = ME ? ME.nombre : '';
+function salir(){ try{localStorage.clear();}catch(e){} location.replace('index.html'); }
+function toast(m){ const t=document.createElement('div'); t.className='toast'; t.textContent=m; document.body.appendChild(t); setTimeout(()=>t.remove(),4200); }
+async function api(method,path,body){
+  const r=await fetch(path,{method,headers:{'Content-Type':'application/json',Authorization:'Bearer '+TOKEN},body:body?JSON.stringify(body):undefined});
+  if(r.status===401){ salir(); throw new Error('Sesión expirada'); }
+  const d=await r.json().catch(()=>({})); if(!r.ok) throw new Error(d.error||('Error '+r.status)); return d;
+}
+let _vozMap={};
+function vozPanel(id){
+  const old=document.getElementById('vz-ov'); if(old) old.remove();
+  const v=_vozMap[id]||{}; const m=v.voz||{};
+  const ov=document.createElement('div'); ov.id='vz-ov';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(10,15,25,.55);z-index:100;display:flex;align-items:center;justify-content:center;padding:18px';
+  ov.onclick=(e)=>{ if(e.target===ov) ov.remove(); };
+  const esc=s=>String(s||'').replace(/"/g,'&quot;');
+  ov.innerHTML=`<div style="background:var(--surf);border:1px solid var(--line);border-radius:14px;padding:20px;max-width:480px;width:100%">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><h3 style="font-size:1rem">📞 Voz · ${esc(v.nombre)||('Agencia #'+id)}</h3><button class="btn" onclick="document.getElementById('vz-ov').remove()">✕</button></div>
+    <div class="muted" style="margin-bottom:14px">Créditos actuales: <b style="color:var(--txt)">${v.creditosVoz||0}</b> · usadas: ${v.consumo||0}. 1 crédito = 1 llamada contestada.</div>
+    <div class="field" style="margin-bottom:12px"><label>Recargar créditos (suma a los actuales)</label><input id="vz-recargar" type="number" min="0" placeholder="ej. 200"></div>
+    <div class="muted" style="margin:4px 0 10px;font-weight:600;color:var(--dim)">Datos que dice la llamada (marca de la agencia)</div>
+    <div class="grid">
+      <div class="field"><label>Despacho que llama</label><input id="vz-despacho" value="${esc(m.despacho)}" placeholder="Ej. Despacho X"></div>
+      <div class="field"><label>Acreedor</label><input id="vz-acreedor" value="${esc(m.acreedor)}" placeholder="Ej. Financiera Y"></div>
+      <div class="field"><label>Tel. de contacto</label><input id="vz-tel" value="${esc(m.telContacto)}" placeholder="10 dígitos"></div>
+      <div class="field"><label>WhatsApp</label><input id="vz-wa" value="${esc(m.whatsapp)}" placeholder="10 dígitos"></div>
+    </div>
+    <button class="btn gold" style="margin-top:16px;width:100%" onclick="vozGuardar(${id})">Guardar</button>
+  </div>`;
+  document.body.appendChild(ov);
+}
+async function vozGuardar(id){
+  const body={
+    despacho:document.getElementById('vz-despacho').value.trim(),
+    acreedor:document.getElementById('vz-acreedor').value.trim(),
+    telContacto:document.getElementById('vz-tel').value.trim(),
+    whatsapp:document.getElementById('vz-wa').value.trim()
+  };
+  const rec=document.getElementById('vz-recargar').value;
+  if(rec && +rec>0) body.recargar=+rec;
+  try{
+    const d=await api('POST','/api/super/tenants/'+id+'/voz',body);
+    const ov=document.getElementById('vz-ov'); if(ov) ov.remove();
+    toast('✓ Guardado · créditos: '+(d.creditosVoz||0));
+    cargar();
+  }catch(e){ toast(e.message); }
+}
+async function cargar(){
+  try{
+    const list=await api('GET','/api/super/tenants');
+    _vozMap={}; try{ const cv=await api('GET','/api/super/voz/consumo'); (cv||[]).forEach(x=>{ _vozMap[x.id]=x; }); }catch(e){}
+    document.getElementById('tb').innerHTML = list.length ? list.map(t=>{
+      const v=_vozMap[t.id]||{}; const c=v.creditosVoz||0;
+      return `<tr>
+      <td><b>${t.nombre}</b><div class="muted">#${t.id} · creada ${new Date(t.createdAt).toLocaleDateString('es-MX')}</div></td>
+      <td>${t.stats?t.stats.usuarios:'—'}</td><td>${t.stats?t.stats.sucursales:'—'}</td><td>${t.stats?t.stats.clientes:'—'}</td>
+      <td><span class="pill ${t.activo?'on':'off'}">${t.activo?'Activa':'Suspendida'}</span></td>
+      <td><b style="color:${c>0?'var(--grn)':'var(--faint)'}">${c}</b> créd<div class="muted">${v.consumo||0} usadas</div></td>
+      <td style="text-align:right;white-space:nowrap">
+        <button class="btn" onclick="vozPanel(${t.id})">📞 Voz</button>
+        <button class="btn" onclick="entrar(${t.id})">Entrar (soporte)</button>
+        <button class="btn" onclick="toggle(${t.id},${!t.activo})">${t.activo?'Suspender':'Reactivar'}</button>
+      </td></tr>`;
+    }).join('') : '<tr><td colspan="7" class="muted" style="text-align:center;padding:18px">Aún no hay agencias.</td></tr>';
+  }catch(e){ toast(e.message); }
+}
+async function crearAgencia(){
+  const nombre=document.getElementById('t-nombre').value.trim();
+  const adminUsuario=document.getElementById('t-admuser').value.trim();
+  const adminPassword=document.getElementById('t-admpass').value;
+  const adminNombre=document.getElementById('t-admnom').value.trim();
+  if(!nombre||!adminUsuario){ toast('Nombre de agencia y usuario admin son obligatorios'); return; }
+  try{
+    const d=await api('POST','/api/super/tenants',{nombre,adminUsuario,adminPassword,adminNombre});
+    toast(`✓ Agencia "${d.nombre}" creada · usuario: ${d.adminUsuario} · clave: ${d.adminPassword}`);
+    alert(`Agencia creada:\n\nAgencia: ${d.nombre}\nUsuario admin: ${d.adminUsuario}\nContraseña: ${d.adminPassword}\n\nEntrégale estos datos al responsable de la agencia. Con eso él da de alta su equipo y tarifas.`);
+    ['t-nombre','t-admuser','t-admpass'].forEach(id=>document.getElementById(id).value='');
+    cargar();
+  }catch(e){ toast(e.message); }
+}
+async function toggle(id,activo){
+  if(!confirm(activo?'¿Reactivar esta agencia?':'¿Suspender esta agencia? Sus usuarios no podrán entrar.')) return;
+  try{ await api('PATCH','/api/super/tenants/'+id,{activo}); cargar(); }catch(e){ toast(e.message); }
+}
+async function entrar(id){
+  try{
+    const d=await api('POST','/api/super/enter/'+id);
+    localStorage.setItem('cobrapro_token',d.token);
+    localStorage.setItem('cobrapro_user',JSON.stringify(d.user));
+    localStorage.setItem('cobrapro_brand',JSON.stringify(d.brand||{nombre:'CobraPro'}));
+    location.href='cobrapro.html';
+  }catch(e){ toast(e.message); }
+}
+cargar();
+</script><script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){});});}</script>
+</body></html>

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CobraPro · Usuarios</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0a0c10;--surf:#11141a;--surf-2:#171b22;--surf-3:#1e232c;--line:#262c36;--line-2:#333b48;
+    --txt:#eef1f5;--dim:#97a1b0;--faint:#5a6470;--acc:#f0b429;--acc-d:#b3851f;--grn:#3ecf8e;--red:#f0654d;--blu:#5aa0e8;--vio:#b07ce0;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--txt);font-family:"Sora",sans-serif;line-height:1.45;min-height:100vh}
+  .mono{font-family:"IBM Plex Mono",monospace}
+  header{display:flex;align-items:center;gap:13px;padding:15px 26px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,var(--surf),var(--bg))}
+  .mk{width:38px;height:38px;border-radius:10px;background:linear-gradient(140deg,var(--acc),var(--acc-d));display:grid;place-items:center;font-weight:700;color:#1a1408;font-size:18px}
+  header h1{font-size:1.05rem;font-weight:600;line-height:1}header .sub{font-size:.72rem;color:var(--faint)}
+  .who{margin-left:auto;display:flex;align-items:center;gap:12px;font-size:.82rem;color:var(--dim)}
+  .btn{background:var(--surf-3);border:1px solid var(--line-2);color:var(--txt);font-family:"Sora";font-size:.82rem;font-weight:500;padding:8px 13px;border-radius:8px;cursor:pointer;transition:.13s}
+  .btn:hover{border-color:var(--acc);color:var(--acc)}
+  .btn.gold{background:linear-gradient(140deg,var(--acc),var(--acc-d));color:#1a1408;border:none;font-weight:600}
+  .wrap{max-width:1000px;margin:0 auto;padding:24px 26px 60px}
+  .panel{background:var(--surf);border:1px solid var(--line);border-radius:12px;padding:20px;margin-bottom:20px}
+  .panel h2{font-size:1.02rem;font-weight:600;margin-bottom:14px}
+  .login-wrap{min-height:80vh;display:flex;align-items:center;justify-content:center}
+  .login{width:340px;background:var(--surf);border:1px solid var(--line);border-radius:14px;padding:26px}
+  .login .mk{margin:0 auto 14px}
+  .login h2{text-align:center;margin-bottom:4px}.login p{text-align:center;color:var(--faint);font-size:.8rem;margin-bottom:20px}
+  .field{margin-bottom:13px}.field label{display:block;font-size:.74rem;color:var(--dim);margin-bottom:6px}
+  .field input,.field select{width:100%;background:var(--surf-2);border:1px solid var(--line-2);color:var(--txt);font-family:"Sora";font-size:.9rem;padding:11px 12px;border-radius:8px;outline:none}
+  .field input:focus,.field select:focus{border-color:var(--acc)}
+  .err{color:var(--red);font-size:.8rem;margin-top:8px;min-height:18px}
+  .frow{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  table{width:100%;border-collapse:collapse;font-size:.85rem}
+  th{text-align:left;font-weight:500;color:var(--dim);font-size:.69rem;text-transform:uppercase;letter-spacing:.04em;padding:8px 10px;border-bottom:1px solid var(--line-2)}
+  td{padding:10px;border-bottom:1px solid var(--line)}tr:last-child td{border-bottom:none}
+  .pill{display:inline-flex;padding:2px 9px;border-radius:20px;font-size:.69rem;font-weight:500}
+  .pill.on{background:rgba(62,207,142,.13);color:var(--grn)}.pill.off{background:rgba(240,101,77,.13);color:var(--red)}
+  .rolb{font-size:.66rem;font-weight:600;text-transform:uppercase;padding:2px 7px;border-radius:5px}
+  .rolb.admin{background:rgba(240,180,41,.14);color:var(--acc)}.rolb.supervisor{background:rgba(176,124,224,.14);color:var(--vio)}
+  .rolb.sucursal{background:rgba(90,160,232,.14);color:var(--blu)}.rolb.cobrador{background:rgba(62,207,142,.14);color:var(--grn)}
+  .act{background:none;border:1px solid var(--line-2);color:var(--dim);font-size:.72rem;padding:5px 9px;border-radius:7px;cursor:pointer;margin-left:5px}
+  .act:hover{border-color:var(--acc);color:var(--acc)}
+  .passbox{background:linear-gradient(140deg,rgba(240,180,41,.12),rgba(240,180,41,.04));border:1px solid var(--acc);border-radius:11px;padding:16px;margin-bottom:16px;display:none;align-items:center;gap:14px}
+  .passbox.show{display:flex}
+  .passbox .pw{font-family:"IBM Plex Mono";font-size:1.5rem;font-weight:600;color:var(--acc);letter-spacing:.12em}
+  .passbox .info{flex:1}.passbox .info .l{font-size:.74rem;color:var(--dim)}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--grn);color:#04130c;padding:12px 20px;border-radius:30px;font-weight:600;opacity:0;transition:.3s;z-index:100}
+  .toast.show{opacity:1;transform:translateX(-50%)}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+<div id="loginView" class="login-wrap">
+  <div class="login">
+    <div class="mk">₵</div>
+    <h2>CobraPro</h2><p>Administración de usuarios</p>
+    <div class="field"><label>Usuario</label><input id="lu" value="admin" autocomplete="username"></div>
+    <div class="field"><label>Contraseña</label><input id="lp" type="password" value="admin123" autocomplete="current-password" onkeydown="if(event.key==='Enter')login()"></div>
+    <button class="btn gold" style="width:100%;padding:12px" onclick="login()">Entrar</button>
+    <div class="err" id="lerr"></div>
+  </div>
+</div>
+<div id="appView" class="hidden">
+  <header>
+    <div class="mk">₵</div><div><h1>Usuarios y accesos</h1><div class="sub">CobraPro · administración</div></div>
+    <div class="who"><span id="whoName">—</span><button class="btn" onclick="logout()">Salir</button></div>
+  </header>
+  <div class="wrap">
+    <div class="panel">
+      <h2>Crear usuario</h2>
+      <div class="passbox" id="passbox">
+        <div class="info"><div class="l">Contraseña generada para <b id="pbName"></b> — entrégala una sola vez:</div></div>
+        <div class="pw" id="pbPw"></div>
+        <button class="btn" onclick="copyPw()">Copiar</button>
+      </div>
+      <div class="frow">
+        <div class="field"><label>Nombre completo</label><input id="n-nombre" placeholder="Nombre del empleado"></div>
+        <div class="field"><label>Usuario (para entrar)</label><input id="n-usuario" placeholder="ej. areyes"></div>
+      </div>
+      <div class="frow">
+        <div class="field"><label>Rol</label><select id="n-rol">
+          <option value="cobrador">Cobrador (campo)</option>
+          <option value="sucursal">Sucursal (caja)</option>
+          <option value="supervisor">Supervisor</option>
+          <option value="admin">Administrador</option>
+        </select></div>
+        <div class="field"><label>Sucursal asignada</label><select id="n-suc"></select></div>
+      </div>
+      <div class="field"><label>Contraseña (opcional — si la dejas vacía, el sistema la genera)</label><input id="n-pass" placeholder="Dejar vacío para generar automática"></div>
+      <button class="btn gold" onclick="crear()">Crear usuario</button>
+    </div>
+    <div class="panel">
+      <h2>Usuarios registrados</h2>
+      <table><thead><tr><th>Nombre</th><th>Usuario</th><th>Rol</th><th>Sucursal</th><th>Estado</th><th></th></tr></thead><tbody id="ulist"></tbody></table>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const BASE = "";
+let token = null, sucursales = [];
+const rolLbl = {admin:'Administrador',supervisor:'Supervisor',sucursal:'Sucursal',cobrador:'Cobrador'};
+async function api(method, path, body){
+  const r = await fetch(BASE + path, {method, headers:{'Content-Type':'application/json', ...(token?{Authorization:'Bearer '+token}:{})}, body: body?JSON.stringify(body):undefined});
+  const d = await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(d.error || d.message || ('Error '+r.status));
+  return d;
+}
+async function login(){
+  document.getElementById('lerr').textContent='';
+  try{
+    const d = await api('POST','/api/auth/login',{usuario:document.getElementById('lu').value, password:document.getElementById('lp').value});
+    token = d.token;
+    document.getElementById('whoName').textContent = d.user.nombre + ' · ' + rolLbl[d.user.rol];
+    document.getElementById('loginView').classList.add('hidden');
+    document.getElementById('appView').classList.remove('hidden');
+    sucursales = await api('GET','/api/sucursales');
+    document.getElementById('n-suc').innerHTML = '<option value="">— ninguna —</option>' + sucursales.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join('');
+    cargarUsuarios();
+  }catch(e){ document.getElementById('lerr').textContent = e.message; }
+}
+function logout(){ token=null; location.reload(); }
+async function cargarUsuarios(){
+  const us = await api('GET','/api/users');
+  document.getElementById('ulist').innerHTML = us.map(u=>{
+    const suc = sucursales.find(s=>s.id===u.sucursalId);
+    return `<tr>
+      <td style="font-weight:500">${u.nombre}</td><td class="mono">${u.usuario}</td>
+      <td><span class="rolb ${u.rol}">${rolLbl[u.rol]||u.rol}</span></td>
+      <td>${suc?suc.nombre:'—'}</td>
+      <td><span class="pill ${u.activo?'on':'off'}">${u.activo?'Activo':'Inactivo'}</span></td>
+      <td style="text-align:right;white-space:nowrap">
+        <button class="act" onclick="toggle(${u.id},${!u.activo})">${u.activo?'Desactivar':'Activar'}</button>
+        <button class="act" onclick="resetear(${u.id})">Resetear clave</button>
+      </td></tr>`;
+  }).join('');
+}
+async function crear(){
+  const body = {nombre:document.getElementById('n-nombre').value.trim(), usuario:document.getElementById('n-usuario').value.trim(),
+    rol:document.getElementById('n-rol').value, sucursalId:+document.getElementById('n-suc').value || null,
+    password:document.getElementById('n-pass').value.trim() || undefined};
+  if(!body.nombre || !body.usuario){ toast('Nombre y usuario son obligatorios'); return; }
+  try{ const d = await api('POST','/api/users',body); mostrarPass(d.nombre, d.passwordGenerada);
+    ['n-nombre','n-usuario','n-pass'].forEach(id=>document.getElementById(id).value=''); cargarUsuarios();
+  }catch(e){ toast(e.message); }
+}
+async function toggle(id,activo){ try{ await api('PATCH','/api/users/'+id,{activo}); cargarUsuarios(); }catch(e){ toast(e.message); } }
+async function resetear(id){ try{ const d = await api('PATCH','/api/users/'+id,{resetPassword:true}); mostrarPass('(clave reseteada)', d.passwordGenerada); }catch(e){ toast(e.message); } }
+function mostrarPass(nombre, pw){ document.getElementById('pbName').textContent=nombre; document.getElementById('pbPw').textContent=pw; document.getElementById('passbox').classList.add('show'); }
+function copyPw(){ navigator.clipboard.writeText(document.getElementById('pbPw').textContent).then(()=>toast('Contraseña copiada')); }
+function toast(t){ const e=document.getElementById('toast'); e.textContent=t; e.classList.add('show'); setTimeout(()=>e.classList.remove('show'),2400); }
+</script>
+</body>
+</html>

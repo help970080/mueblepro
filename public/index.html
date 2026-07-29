@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#caa23a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="CobraPro">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CobraPro · Acceso</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#eef1f7;--surf:#ffffff;--surf-1:#ffffff;--surf-2:#f1f4f9;--surf-3:#e7ecf3;--line:#dde3ec;--line-2:#c9d2de;
+    --txt:#1b2330;--ink:#1b2330;--dim:#5b6675;--faint:#97a2b2;--acc:#d99a0f;--acc-d:#a87a10;--grn:#178a55;--red:#d6432d;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{min-height:100vh;background:
+    radial-gradient(1100px 560px at 82% -8%,rgba(240,180,41,.08),transparent 60%),
+    radial-gradient(820px 460px at -8% 108%,rgba(90,160,232,.06),transparent 55%),var(--bg);
+    color:var(--txt);font-family:"Sora",sans-serif;display:flex;align-items:center;justify-content:center;padding:24px}
+  .mono{font-family:"IBM Plex Mono",monospace}
+  .card{width:360px;max-width:100%;background:linear-gradient(160deg,var(--surf-2),var(--surf));border:1px solid var(--line);border-radius:18px;padding:30px 26px;box-shadow:0 20px 60px rgba(0,0,0,.45)}
+  .brand{display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:6px}
+  .mk{width:54px;height:54px;border-radius:15px;background:linear-gradient(140deg,var(--acc),var(--acc-d));display:grid;place-items:center;font-weight:800;color:#1a1408;font-size:27px;box-shadow:0 8px 26px rgba(240,180,41,.3)}
+  .brand h1{font-size:1.55rem;font-weight:800;letter-spacing:-.02em}
+  .tag{color:var(--faint);font-size:.82rem;text-align:center;margin-bottom:24px}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:.74rem;color:var(--dim);margin-bottom:6px}
+  .field input{width:100%;background:var(--surf);border:1px solid var(--line-2);color:var(--txt);font-family:"Sora";font-size:.95rem;padding:12px 13px;border-radius:9px;outline:none}
+  .field input:focus{border-color:var(--acc)}
+  .enter{width:100%;background:linear-gradient(140deg,var(--acc),var(--acc-d));color:#1a1408;border:none;border-radius:10px;font-family:"Sora";font-weight:700;font-size:.98rem;padding:13px;cursor:pointer;margin-top:4px;transition:.13s}
+  .enter:hover{filter:brightness(1.06)}
+  .enter:disabled{opacity:.6;cursor:default}
+  .err{color:var(--red);font-size:.82rem;margin-top:12px;text-align:center;min-height:18px}
+  .hint{margin-top:18px;padding-top:16px;border-top:1px solid var(--line);font-size:.74rem;color:var(--faint);text-align:center;line-height:1.6}
+  .hint b{color:var(--dim)}
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="brand"><div class="mk">₵</div><h1>CobraPro</h1></div>
+    <div class="tag">Crédito y cobranza · inicia sesión</div>
+    <div class="field"><label>Usuario</label><input id="u" autocomplete="username" autofocus></div>
+    <div class="field"><label>Contraseña</label><input id="p" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')entrar()"></div>
+    <button class="enter" id="btn" onclick="entrar()">Entrar</button>
+    <div class="err" id="err"></div>
+    <div class="hint">Cada usuario entra a su panel según su rol.</div>
+  </div>
+<script>
+  const dest = { admin:'cobrapro.html', supervisor:'cobrapro.html', sucursal:'cobrapro_sucursal.html', cobrador:'cobrapro_campo.html', promotor_grupal:'grupal_campo.html', jc:'cobrapro_jc.html', super:'super.html' };
+  async function entrar(){
+    const err = document.getElementById('err'); const btn = document.getElementById('btn');
+    err.textContent = ''; btn.disabled = true; btn.textContent = 'Entrando…';
+    try{
+      const r = await fetch('/api/auth/login', { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ usuario: document.getElementById('u').value.trim(), password: document.getElementById('p').value }) });
+      const d = await r.json();
+      if(!r.ok) throw new Error(d.error || 'No se pudo iniciar sesión');
+      try{ localStorage.setItem('cobrapro_token', d.token); localStorage.setItem('cobrapro_user', JSON.stringify(d.user)); localStorage.setItem('cobrapro_brand', JSON.stringify(d.brand||{nombre:'CobraPro'})); }catch(e){}
+      if(d.super){ location.href='super.html'; return; }
+      location.href = dest[d.user.rol] || 'cobrapro.html';
+    }catch(e){
+      err.textContent = e.message; btn.disabled = false; btn.textContent = 'Entrar';
+    }
+  }
+</script>
+<script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){});});}</script>
+</body>
+</html>

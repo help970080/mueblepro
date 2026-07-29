@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CobraPro · Diagnóstico de operación</title>
+<style>
+  :root{ --bg:#0f1216; --surf:#171b21; --surf2:#1e242c; --line:#2a323c; --txt:#e6eaef; --dim:#95a1b0; --faint:#6b7583; --gold:#caa23a; --grn:#22a06b; --red:#e5484d; --amber:#e0a000; --blu:#3b82f6; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font-family:'Segoe UI',system-ui,sans-serif;font-size:14px;line-height:1.5}
+  .wrap{max-width:1000px;margin:0 auto;padding:20px 16px 60px}
+  h1{font-size:1.4rem;margin:0 0 2px} h2{font-size:1rem;margin:0 0 10px}
+  .sub{color:var(--dim);font-size:.85rem;margin-bottom:18px}
+  .card{background:var(--surf);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  input,button,select{font-family:inherit;font-size:.88rem}
+  input{background:var(--surf2);border:1px solid var(--line);color:var(--txt);padding:9px 11px;border-radius:8px}
+  button{background:var(--gold);color:#1a1206;border:none;padding:9px 15px;border-radius:8px;font-weight:600;cursor:pointer}
+  button.ghost{background:var(--surf2);color:var(--txt);border:1px solid var(--line)}
+  button:disabled{opacity:.5;cursor:default}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+  .metric{background:var(--surf2);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .metric .l{font-size:.72rem;color:var(--faint);text-transform:uppercase;letter-spacing:.03em}
+  .metric .v{font-size:1.35rem;font-weight:700;margin-top:3px}
+  .metric .s{font-size:.75rem;color:var(--dim);margin-top:2px}
+  .g{color:var(--grn)} .r{color:var(--red)} .a{color:var(--amber)} .b{color:var(--blu)}
+  .banner{border-radius:10px;padding:12px 14px;margin-bottom:12px;font-weight:600;display:flex;align-items:center;gap:8px}
+  .banner.ok{background:rgba(34,160,107,.12);border:1px solid rgba(34,160,107,.4);color:#7ee0b0}
+  .banner.warn{background:rgba(224,160,0,.12);border:1px solid rgba(224,160,0,.4);color:#f0c860}
+  .banner.err{background:rgba(229,72,77,.12);border:1px solid rgba(229,72,77,.4);color:#f4989b}
+  table{width:100%;border-collapse:collapse;font-size:.82rem}
+  th{text-align:left;color:var(--faint);text-transform:uppercase;font-size:.7rem;padding:7px 8px;border-bottom:1px solid var(--line)}
+  td{padding:7px 8px;border-bottom:1px solid var(--line)}
+  .mono{font-family:'Consolas',monospace}
+  .muted{color:var(--faint);font-size:.8rem}
+  .pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:.72rem;font-weight:600}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🩺 Diagnóstico de operación</h1>
+  <div class="sub">Revisión al 100%: salud de la base de Render, estado del servidor, auditoría de operaciones y detección de pérdidas.</div>
+
+  <div class="card">
+    <h2>Conexión</h2>
+    <div class="row">
+      <input id="base" placeholder="URL base (vacío = este dominio)" style="flex:1;min-width:220px">
+      <input id="token" placeholder="Token de admin (vacío = sesión actual)" style="flex:1;min-width:220px">
+      <button onclick="revisarTodo()">🔄 Revisar todo</button>
+    </div>
+    <div class="muted" style="margin-top:8px">Si abres esto desde el mismo dominio de CobraPro y ya iniciaste sesión como admin, no necesitas llenar nada.</div>
+    <div id="conn-msg" class="muted" style="margin-top:6px"></div>
+  </div>
+
+  <div class="card">
+    <h2>🗄️ Base de datos (Render)</h2>
+    <div id="db-banner"></div>
+    <div class="grid" id="db-metrics"><div class="muted">Sin datos aún. Da clic en “Revisar todo”.</div></div>
+    <div id="db-tablas" style="margin-top:12px"></div>
+  </div>
+
+  <div class="card">
+    <h2>⚙️ Servidor</h2>
+    <div class="grid" id="srv-metrics"><div class="muted">Sin datos aún.</div></div>
+  </div>
+
+  <div class="card">
+    <h2>🔎 Auditoría de operaciones (oplog)</h2>
+    <div class="muted" style="margin-bottom:10px">Responde “¿qué pasó entre tal y tal hora?”. Fechas en hora de México.</div>
+    <div class="row">
+      <label class="muted">Desde <input id="op-desde" type="datetime-local"></label>
+      <label class="muted">Hasta <input id="op-hasta" type="datetime-local"></label>
+      <select id="op-tipo" class="ghost" style="padding:9px;border-radius:8px">
+        <option value="">Todas las operaciones</option>
+        <option value="pago">Pagos</option>
+        <option value="asignacion.crear">Asignaciones creadas</option>
+        <option value="asignacion.recibir">Asignaciones recibidas</option>
+        <option value="asignacion.rechazar">Asignaciones rechazadas</option>
+        <option value="recoleccion">Recolecciones</option>
+        <option value="entrega">Entregas</option>
+        <option value="corte">Cortes</option>
+        <option value="corte.recibir">Cortes recibidos</option>
+        <option value="cierre-caja">Cierres de caja</option>
+        <option value="reverso">Reversos</option>
+        <option value="refin">Refinanciamientos</option>
+      </select>
+      <button onclick="auditar()">Buscar</button>
+    </div>
+    <div id="op-res" style="margin-top:12px"></div>
+  </div>
+
+  <div class="card">
+    <h2>🛟 Detectar operaciones perdidas</h2>
+    <div class="muted" style="margin-bottom:10px">Compara el registro (oplog) contra el estado actual y lista lo que quedó registrado pero ya no existe — lo que se perdió en un reinicio.</div>
+    <div class="row">
+      <label class="muted">Desde <input id="rc-desde" type="datetime-local"></label>
+      <label class="muted">Hasta <input id="rc-hasta" type="datetime-local"></label>
+      <button onclick="reconciliar()">Detectar pérdidas</button>
+    </div>
+    <div id="rc-res" style="margin-top:12px"></div>
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+function baseURL(){ const b=$('base').value.trim(); return b?b.replace(/\/$/,''):''; }
+function tok(){ const t=$('token').value.trim(); if(t) return t; try{ return localStorage.getItem('cobrapro_token')||''; }catch(e){ return ''; } }
+function fmtBytes(n){ if(n==null) return '—'; if(n<1024) return n+' B'; if(n<1048576) return (n/1024).toFixed(1)+' KB'; if(n<1073741824) return (n/1048576).toFixed(1)+' MB'; return (n/1073741824).toFixed(2)+' GB'; }
+function fmtMoney(n){ return '$'+Math.round(n||0).toLocaleString('es-MX'); }
+function segToDur(s){ if(s<60) return s+'s'; if(s<3600) return Math.floor(s/60)+'m '+(s%60)+'s'; if(s<86400) return Math.floor(s/3600)+'h '+Math.floor((s%3600)/60)+'m'; return Math.floor(s/86400)+'d '+Math.floor((s%86400)/3600)+'h'; }
+
+async function api(path){
+  const r=await fetch(baseURL()+path,{ headers:{ Authorization:'Bearer '+tok() } });
+  if(r.status===401||r.status===403){ throw new Error('No autorizado. Inicia sesión como admin o pega tu token.'); }
+  if(!r.ok){ let m=r.status; try{ const j=await r.json(); m=j.error||m; }catch(e){} throw new Error(m); }
+  return r.json();
+}
+
+async function revisarTodo(){
+  $('conn-msg').textContent='Consultando…';
+  try{ await cargarSalud(); $('conn-msg').innerHTML='<span class="g">✓ Conectado</span> · '+new Date().toLocaleTimeString('es-MX'); }
+  catch(e){ $('conn-msg').innerHTML='<span class="r">✗ '+e.message+'</span>'; }
+}
+
+async function cargarSalud(){
+  const d=await api('/api/admin/salud');
+  const b=d.base||{};
+  const st=(b.tablas||[]).find(t=>t.tabla==='cobrapro_state')||{};
+  const dead=(b.tablas||[]).reduce((a,t)=>a+(t.basura||0),0);
+  // La señal REAL de "necesita VACUUM" son las filas muertas (dead tuples), NO el tamaño en disco:
+  // el JSON grande vive comprimido en TOAST, que infla el "total" de forma legítima.
+  let nivel='ok', msg='La base está sana.';
+  if(!b.conecta){ nivel='err'; msg='La base NO responde: '+(b.error||'sin conexión'); }
+  else if(b.bytes>16106127360){ nivel='err'; msg='La base superó 15 GB — riesgo de llenado como el incidente pasado.'; }
+  else if(dead>50000){ nivel='err'; msg='Hay MUCHAS filas muertas ('+dead.toLocaleString('es-MX')+'). Conviene un VACUUM FULL.'; }
+  else if(b.bytes>5368709120){ nivel='warn'; msg='La base va creciendo (>5 GB). Vigílala.'; }
+  else if(dead>10000){ nivel='warn'; msg='Empieza a acumularse basura ('+dead.toLocaleString('es-MX')+' filas muertas).'; }
+  const bicon={ok:'✓',warn:'⚠',err:'✗'};
+  $('db-banner').innerHTML='<div class="banner '+nivel+'">'+bicon[nivel]+' '+msg+'</div>';
+  $('db-metrics').innerHTML=[
+    ['Estado', b.conecta?'<span class="g">● En línea</span>':'<span class="r">● Caída</span>',''],
+    ['Tamaño total', b.tamano||'—', b.bytes!=null?'límite típico 30 GB':''],
+    ['Datos reales (estado)', fmtBytes(st.datos), st.total!=null?('ocupa '+fmtBytes(st.total)+' con índices/TOAST'):''],
+    ['Basura acumulada', dead.toLocaleString('es-MX')+' filas', dead>50000?'⚠ conviene VACUUM':(dead>10000?'vigilar':'normal')],
+    ['Operaciones (oplog)', (b.oplog&&b.oplog.eventos!=null)?b.oplog.eventos.toLocaleString('es-MX'):'—', (b.oplog&&b.oplog.ultimo)?('última: '+new Date(b.oplog.ultimo).toLocaleString('es-MX')):'']
+  ].map(m=>`<div class="metric"><div class="l">${m[0]}</div><div class="v">${m[1]}</div><div class="s">${m[2]||''}</div></div>`).join('');
+  if(b.tablas&&b.tablas.length){
+    $('db-tablas').innerHTML='<table><thead><tr><th>Tabla</th><th>En disco</th><th>Datos reales</th><th>Filas</th><th>Basura (filas muertas)</th><th>Salud</th></tr></thead><tbody>'+
+      b.tablas.map(t=>{ const ok=(t.basura||0)<10000; return `<tr><td class="mono">${t.tabla}</td><td>${fmtBytes(t.total)}</td><td>${fmtBytes(t.datos)}</td><td>${(t.filas!=null?t.filas.toLocaleString('es-MX'):'—')}</td><td>${(t.basura||0).toLocaleString('es-MX')}</td><td>${ok?'<span class="g">✓ ok</span>':'<span class="a">⚠ revisar</span>'}</td></tr>`; }).join('')+
+      '</tbody></table>';
+  } else $('db-tablas').innerHTML='';
+  const s=d.server||{};
+  $('srv-metrics').innerHTML=[
+    ['Encendido desde', segToDur(s.uptimeSeg||0), 'sin reinicios = estable'],
+    ['Memoria del server', (s.memoriaMB||0)+' MB', 'límite 512 MB'],
+    ['Node.js', s.node||'—', ''],
+    ['Guardados en cola', (s.guardadosPendientes||0)+'', (s.guardadosPendientes>0?'⚠ hay datos por escribir':'todo guardado')],
+    ['Oplog en cola', (s.oplogPendiente||0)+'', (s.oplogPendiente>0?'⚠ eventos por persistir':'al día')]
+  ].map(m=>`<div class="metric"><div class="l">${m[0]}</div><div class="v">${m[1]}</div><div class="s">${m[2]||''}</div></div>`).join('');
+}
+
+function mxParam(v){ return v? v.replace('T',' ') : ''; }
+function detalleOp(dt){ if(dt&&dt.monto!=null){ return fmtMoney(dt.monto)+(dt.cobradoPor?(' · '+dt.cobradoPor):'')+(dt.fromNombre?(' · '+dt.fromNombre+'→'+dt.toNombre):''); } return JSON.stringify(dt||{}).slice(0,80); }
+
+async function auditar(){
+  const cont=$('op-res'); cont.innerHTML='<div class="muted">Consultando…</div>';
+  try{
+    const qs=[]; const de=mxParam($('op-desde').value), ha=mxParam($('op-hasta').value), ti=$('op-tipo').value;
+    if(de) qs.push('desde='+encodeURIComponent(de)); if(ha) qs.push('hasta='+encodeURIComponent(ha)); if(ti) qs.push('tipo='+encodeURIComponent(ti));
+    qs.push('limit=1000');
+    const d=await api('/api/admin/oplog?'+qs.join('&'));
+    if(!d.items||!d.items.length){ cont.innerHTML='<div class="muted">Sin operaciones en ese rango.</div>'; return; }
+    cont.innerHTML='<div class="muted" style="margin-bottom:8px">'+d.total+' operación(es)</div><table><thead><tr><th>Fecha/hora (MX)</th><th>Tipo</th><th>Ref</th><th>Detalle</th></tr></thead><tbody>'+
+      d.items.map(it=>`<tr><td class="mono">${it.ts}</td><td><span class="pill" style="background:var(--surf2)">${it.tipo}</span></td><td class="mono">${it.ref||''}</td><td>${detalleOp(it.data)}</td></tr>`).join('')+
+      '</tbody></table>';
+  }catch(e){ cont.innerHTML='<div class="banner err">✗ '+e.message+'</div>'; }
+}
+
+async function reconciliar(){
+  const cont=$('rc-res'); cont.innerHTML='<div class="muted">Analizando…</div>';
+  try{
+    const qs=[]; const de=mxParam($('rc-desde').value), ha=mxParam($('rc-hasta').value);
+    if(de) qs.push('desde='+encodeURIComponent(de)); if(ha) qs.push('hasta='+encodeURIComponent(ha));
+    const d=await api('/api/admin/oplog/reconciliar'+(qs.length?('?'+qs.join('&')):''));
+    if(!d.faltantes){ cont.innerHTML='<div class="banner ok">✓ Nada se perdió. Revisadas '+d.revisados+' operación(es), todas presentes.</div>'; return; }
+    cont.innerHTML='<div class="banner warn">⚠ '+d.faltantes+' operación(es) registradas que YA NO existen en el sistema (se perdieron). Revisadas '+d.revisados+'.</div>'+
+      '<table><thead><tr><th>Fecha/hora (MX)</th><th>Tipo</th><th>Ref</th><th>Detalle</th></tr></thead><tbody>'+
+      d.items.map(it=>`<tr><td class="mono">${it.ts}</td><td><span class="pill" style="background:var(--surf2)">${it.tipo}</span></td><td class="mono">${it.ref||''}</td><td>${detalleOp(it.data)}</td></tr>`).join('')+
+      '</tbody></table>';
+  }catch(e){ cont.innerHTML='<div class="banner err">✗ '+e.message+'</div>'; }
+}
+
+(function(){
+  const now=new Date(); const pad=n=>String(n).padStart(2,'0');
+  const iso=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const ayer=new Date(now.getTime()-12*3600*1000);
+  ['op-desde','rc-desde'].forEach(id=>{ if($(id)) $(id).value=iso(ayer); });
+  ['op-hasta','rc-hasta'].forEach(id=>{ if($(id)) $(id).value=iso(now); });
+  revisarTodo();
+})();
+</script>
+</body>
+</html>

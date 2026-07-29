@@ -1,0 +1,22 @@
+{
+  "name": "CobraPro Campo",
+  "short_name": "CobraPro",
+  "description": "Cobranza en ruta para cobradores",
+  "start_url": "cobrapro_campo.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0c10",
+  "theme_color": "#f0b429",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='192' height='192'%3E%3Crect width='192' height='192' rx='40' fill='%23f0b429'/%3E%3Ctext x='96' y='132' font-size='110' font-weight='bold' text-anchor='middle' fill='%231a1408' font-family='Arial'%3E%E2%82%B5%3C/text%3E%3C/svg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='512'%3E%3Crect width='512' height='512' rx='110' fill='%23f0b429'/%3E%3Ctext x='256' y='350' font-size='290' font-weight='bold' text-anchor='middle' fill='%231a1408' font-family='Arial'%3E%E2%82%B5%3C/text%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}

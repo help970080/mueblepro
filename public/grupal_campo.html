@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#caa23a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="CobraPro Grupal">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>CobraPro · Junta Grupal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#eef1f7;--surf:#ffffff;--surf-1:#ffffff;--surf-2:#f1f4f9;--surf-3:#e7ecf3;--line:#dde3ec;--line-2:#c9d2de;
+    --txt:#1b2330;--ink:#1b2330;--dim:#5b6675;--faint:#97a2b2;--acc:#d99a0f;--acc-d:#a87a10;
+    --grn:#178a55;--grn-d:#0f6e42;--red:#d6432d;--blu:#2f7fd1;--vio:#7c5ce0;--r:13px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{background:#05070a;font-family:"Sora",sans-serif;color:var(--txt);display:flex;justify-content:center;min-height:100vh}
+  .mono{font-family:"IBM Plex Mono",monospace;font-feature-settings:"tnum"}
+  .phone{width:100%;max-width:430px;background:var(--bg);min-height:100vh;position:relative;display:flex;flex-direction:column;box-shadow:0 0 60px rgba(0,0,0,.6);overflow:hidden}
+  ::-webkit-scrollbar{width:0}
+  header{padding:16px 18px 14px;background:linear-gradient(180deg,var(--surf),var(--bg));border-bottom:1px solid var(--line);position:sticky;top:0;z-index:10}
+  .hrow{display:flex;align-items:center;gap:11px}
+  .ava{width:42px;height:42px;border-radius:11px;background:linear-gradient(140deg,var(--acc),var(--acc-d));display:grid;place-items:center;font-weight:700;color:#1a1408;font-size:1rem;flex-shrink:0}
+  .hrow h1{font-size:1.02rem;font-weight:600;line-height:1.1}
+  .hrow .sub{color:var(--dim);font-size:.75rem;margin-top:2px}
+  .content{flex:1;padding:14px 16px 90px;overflow-y:auto}
+  .card{background:var(--surf);border:1px solid var(--line);border-radius:var(--r);padding:14px;margin-bottom:11px;box-shadow:0 1px 3px rgba(20,30,50,.04)}
+  .card.tap{cursor:pointer;transition:transform .1s}
+  .card.tap:active{transform:scale(.985)}
+  .g-h{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .g-nm{font-weight:700;font-size:1rem}
+  .g-meta{color:var(--dim);font-size:.78rem;margin-top:3px}
+  .pill{font-size:.68rem;font-weight:700;padding:3px 9px;border-radius:20px;white-space:nowrap}
+  .pill.pend{background:rgba(217,154,15,.14);color:var(--acc-d)}
+  .pill.abierta{background:rgba(47,127,209,.14);color:var(--blu)}
+  .pill.cerrada{background:rgba(23,138,85,.14);color:var(--grn-d)}
+  .big{font-family:"Sora";font-weight:800;font-size:1.5rem}
+  .tot-row{display:flex;justify-content:space-between;align-items:center;padding:11px 13px;background:var(--surf-2);border-radius:10px;margin-bottom:12px}
+  .tot-row .l{color:var(--dim);font-size:.74rem}
+  .int-row{border:1px solid var(--line);border-radius:11px;padding:11px 12px;margin-bottom:9px;background:var(--surf)}
+  .int-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .int-nm{font-weight:600;font-size:.9rem}
+  .int-rol{font-size:.65rem;padding:1px 7px;border-radius:20px;background:var(--surf-3);color:var(--dim);margin-left:6px}
+  .int-cuota{color:var(--dim);font-size:.74rem;margin-top:2px}
+  .qbtns{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap}
+  .qb{flex:1;min-width:70px;border:1px solid var(--line);background:var(--surf-2);border-radius:9px;padding:8px 4px;font-size:.74rem;font-weight:600;color:var(--dim);cursor:pointer;text-align:center}
+  .qb.on{background:var(--grn);border-color:var(--grn);color:#fff}
+  .navb{background:var(--surf-2);border:1px solid var(--line);border-radius:9px;padding:9px 4px;font-size:.8rem;font-weight:600;color:var(--dim);cursor:pointer}
+  .navb.on{background:var(--acc);border-color:var(--acc);color:#1a1408}
+  .qb.no{background:var(--red);border-color:var(--red);color:#fff}
+  .fld{display:flex;align-items:center;gap:8px;margin-top:8px}
+  .fld label{font-size:.72rem;color:var(--faint);width:64px}
+  .fld input,.fld select{flex:1;background:var(--surf-2);border:1px solid var(--line);border-radius:8px;padding:7px 9px;font-size:.85rem;color:var(--txt);font-family:inherit}
+  .btn{width:100%;background:var(--acc);color:#1a1408;border:0;border-radius:11px;padding:14px;font-weight:700;font-size:.95rem;font-family:"Sora";cursor:pointer;margin-top:6px}
+  .btn:active{transform:scale(.99)}
+  .btn.grn{background:var(--grn);color:#fff}
+  .btn.o{background:transparent;border:1px solid var(--line-2);color:var(--dim)}
+  .btn:disabled{opacity:.5}
+  .back{background:none;border:0;color:var(--blu);font-size:.85rem;font-weight:600;cursor:pointer;padding:4px 0;margin-bottom:10px}
+  .empty{text-align:center;color:var(--faint);padding:40px 18px;font-size:.88rem}
+  .warn{background:rgba(217,154,15,.1);border-left:3px solid var(--acc);border-radius:0 9px 9px 0;padding:9px 12px;font-size:.78rem;color:var(--dim);margin-bottom:11px}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1b2330;color:#fff;padding:11px 20px;border-radius:10px;font-size:.85rem;font-weight:600;opacity:0;transition:.25s;pointer-events:none;z-index:100;max-width:90%}
+  .toast.on{opacity:1}
+  .sep{height:1px;background:var(--line);margin:12px 0}
+  .foto-wrap{display:flex;gap:8px;align-items:center;margin-top:8px}
+  .foto-prev{width:56px;height:56px;border-radius:9px;object-fit:cover;border:1px solid var(--line)}
+</style>
+</head>
+<body>
+<div class="phone">
+  <header>
+    <div class="hrow">
+      <div class="ava" id="ava">··</div>
+      <div style="flex:1">
+        <h1 id="hTitle">Juntas de hoy</h1>
+        <div class="sub" id="hSub">Cargando…</div>
+      </div>
+      <button class="btn o" style="width:auto;padding:8px 12px;margin:0" onclick="salir()">Salir</button>
+    </div>
+    <div id="navbar" style="display:flex;gap:6px;margin-top:12px">
+      <button class="qb navb on" data-nav="agenda" onclick="navTo('agenda')" style="flex:1">📅 Juntas de hoy</button>
+      <button class="qb navb" data-nav="grupos" onclick="navTo('grupos')" style="flex:1">👥 Mis grupos</button>
+    </div>
+  </header>
+
+  <div class="content" id="content">
+    <div class="empty">Cargando…</div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const TOKEN=(()=>{try{return localStorage.getItem('cobrapro_token')}catch(e){return null}})();
+const ME=(()=>{try{return JSON.parse(localStorage.getItem('cobrapro_user')||'null')}catch(e){return null}})();
+if(!TOKEN){ location.replace('index.html'); }
+// Esta app es del PROMOTOR GRUPAL. Admin y supervisor pueden entrar para revisar.
+if(ME && !['promotor_grupal','admin','supervisor'].includes(ME.rol)){ location.replace('cobrapro_campo.html'); }
+function salir(){ try{localStorage.removeItem('cobrapro_token');localStorage.removeItem('cobrapro_user');}catch(e){} location.replace('index.html'); }
+if(ME&&ME.nombre){ document.getElementById('ava').textContent=ME.nombre.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase(); }
+try{ var _b=JSON.parse(localStorage.getItem('cobrapro_brand')||'null'); if(_b&&_b.nombre) document.title=_b.nombre+' · Junta'; }catch(e){}
+
+async function api(method,path,body){
+  const r=await fetch(path,{method,headers:{'Content-Type':'application/json',Authorization:'Bearer '+TOKEN},body:body?JSON.stringify(body):undefined});
+  if(r.status===401){ salir(); throw new Error('Sesión'); }
+  const d=await r.json().catch(()=>({})); if(!r.ok){ const err=new Error(d.error||('Error '+r.status)); err.status=r.status; err.data=d; throw err; } return d;
+}
+const fmt=n=>'$'+Math.round(n||0).toLocaleString('es-MX');
+function toast(t){ const e=document.getElementById('toast'); e.textContent=t; e.classList.add('on'); setTimeout(()=>e.classList.remove('on'),2200); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+let _junta=null;   // estado de la junta abierta
+let _grupo=null;
+
+// ===== AGENDA =====
+async function cargarAgenda(){
+  document.getElementById('hTitle').textContent='Juntas de hoy';
+  const c=document.getElementById('content');
+  c.innerHTML='<div class="empty">Cargando…</div>';
+  try{
+    const d=await api('GET','/api/g/agenda');
+    document.getElementById('hSub').textContent=d.dia+' · '+d.total+' junta'+(d.total===1?'':'s');
+    if(!d.agenda.length){ c.innerHTML='<div class="empty">No tienes juntas hoy.<br><br><button class="btn o" style="width:auto;display:inline-block" onclick="verTodas()">Ver todos mis grupos</button></div>'; return; }
+    c.innerHTML=d.agenda.map(g=>{
+      const est=g.juntaEstado||'pendiente';
+      const pill=est==='cerrada'?'cerrada':est==='abierta'?'abierta':'pend';
+      const pilltx=est==='cerrada'?'Cerrada':est==='abierta'?'En curso':'Pendiente';
+      return `<div class="card tap" onclick="abrirJunta(${g.grupoId})">
+        <div class="g-h">
+          <div>
+            <div class="g-nm">${esc(g.nombre)}</div>
+            <div class="g-meta">${g.hora||''} · ${g.integrantes} integrantes${g.lugar?' · '+esc(g.lugar):''}</div>
+            <div class="g-meta">Junta #${g.numeroJunta} · esperado ${fmt(g.esperado)}</div>
+          </div>
+          <span class="pill ${pill}">${pilltx}</span>
+        </div>
+      </div>`;
+    }).join('');
+  }catch(e){ c.innerHTML='<div class="empty">Error: '+esc(e.message)+'</div>'; }
+}
+async function verTodas(){
+  const c=document.getElementById('content');
+  c.innerHTML='<div class="empty">Cargando…</div>';
+  try{
+    const d=await api('GET','/api/g/agenda?todos=1');
+    if(!d.agenda.length){ c.innerHTML='<div class="empty">No tienes grupos activos.</div>'; return; }
+    c.innerHTML='<button class="back" onclick="cargarAgenda()">‹ Solo hoy</button>'+d.agenda.map(g=>`<div class="card tap" onclick="abrirJunta(${g.grupoId})"><div class="g-h"><div><div class="g-nm">${esc(g.nombre)}</div><div class="g-meta">${_dia(g)} ${g.hora||''} · ${g.integrantes} integrantes</div></div><span class="pill pend">${g.esHoy?'Hoy':'—'}</span></div></div>`).join('');
+  }catch(e){ c.innerHTML='<div class="empty">Error: '+esc(e.message)+'</div>'; }
+}
+function _dia(){ return ''; }
+
+// ===== ABRIR JUNTA =====
+async function abrirJunta(grupoId){
+  const c=document.getElementById('content');
+  c.innerHTML='<div class="empty">Abriendo junta…</div>';
+  try{
+    const d=await api('POST','/api/g/juntas/abrir',{grupoId});
+    _junta=d; _grupo=grupoId;
+    render_junta();
+  }catch(e){
+    c.innerHTML='<div class="empty">'+esc(e.message)+'<br><br><button class="btn o" style="width:auto;display:inline-block" onclick="cargarAgenda()">‹ Volver</button></div>';
+  }
+}
+
+function render_junta(){
+  document.getElementById('hTitle').textContent=_junta.grupo;
+  document.getElementById('hSub').textContent='Junta #'+_junta.numeroJunta+' · ciclo '+_junta.ciclo;
+  const c=document.getElementById('content');
+  // estado de captura por integrante
+  _junta._cap=_junta._cap||{};
+  _junta.integrantes.forEach(i=>{ if(!_junta._cap[i.integranteId]) _junta._cap[i.integranteId]={estado:'pend',propio:0,solidario:0,porQuien:null,multa:0,ahorro:0}; });
+
+  let h='<button class="back" onclick="cargarAgenda()">‹ Volver a juntas</button>';
+  h+='<div class="warn">Cada quien entrega su cuota a la tesorera. Marca <b>Pagó</b>, <b>Cubierta</b> (otra pagó por ella) o <b>No pagó</b>. Al final, cierra con foto.</div>';
+
+  // totales en vivo
+  h+='<div class="tot-row"><div><div class="l">Esperado</div><div class="big">'+fmt(_junta.esperado)+'</div></div><div style="text-align:right"><div class="l">Capturado</div><div class="big" id="j-cap">$0</div></div></div>';
+
+  h+=_junta.integrantes.map(i=>{
+    const cap=_junta._cap[i.integranteId];
+    return `<div class="int-row" id="row-${i.integranteId}">
+      <div class="int-top">
+        <div>
+          <span class="int-nm">${esc(i.nombre)}</span><span class="int-rol">${i.rol}</span>
+          <div class="int-cuota">Cuota ${fmt(i.cuota)}${i.liquidada?' · ya liquidó':''}</div>
+        </div>
+      </div>
+      <div class="qbtns">
+        <div class="qb ${cap.estado==='pago'?'on':''}" onclick="setEstado(${i.integranteId},'pago')">✓ Pagó</div>
+        <div class="qb ${cap.estado==='cubierta'?'on':''}" onclick="setEstado(${i.integranteId},'cubierta')">🤝 Cubierta</div>
+        <div class="qb ${cap.estado==='no'?'no':''}" onclick="setEstado(${i.integranteId},'no')">✕ No pagó</div>
+      </div>
+      <div id="extra-${i.integranteId}"></div>
+    </div>`;
+  }).join('');
+
+  h+='<div class="sep"></div>';
+  h+='<button class="btn" onclick="guardarReparto()">Registrar pagos de la junta</button>';
+  h+='<div id="cierre-box" style="margin-top:14px"></div>';
+  c.innerHTML=h;
+  _junta.integrantes.forEach(i=>pintExtra(i.integranteId));
+  recalc();
+}
+
+function setEstado(iid,est){
+  const cap=_junta._cap[iid]; const it=_junta.integrantes.find(x=>x.integranteId===iid);
+  cap.estado=est;
+  if(est==='pago'){ cap.propio=it.cuota; cap.solidario=0; cap.porQuien=null; }
+  else if(est==='no'){ cap.propio=0; cap.solidario=0; }
+  else if(est==='cubierta'){ cap.propio=0; }
+  // repinta botones de esta fila
+  const row=document.getElementById('row-'+iid);
+  row.querySelectorAll('.qb').forEach((b,ix)=>{ b.classList.remove('on','no'); });
+  const btns=row.querySelectorAll('.qb');
+  if(est==='pago') btns[0].classList.add('on');
+  if(est==='cubierta') btns[1].classList.add('on');
+  if(est==='no') btns[2].classList.add('no');
+  pintExtra(iid); recalc();
+}
+
+function pintExtra(iid){
+  const cap=_junta._cap[iid]; const box=document.getElementById('extra-'+iid);
+  const it=_junta.integrantes.find(x=>x.integranteId===iid);
+  let h='';
+  if(cap.estado==='pago'){
+    h+=`<div class="fld"><label>Multa</label><input type="number" value="${cap.multa||''}" placeholder="0" oninput="setNum(${iid},'multa',this.value)"></div>`;
+    h+=`<div class="fld"><label>${esc(_junta.etiquetaRetencion||'Garantía')}</label><input type="number" value="${cap.ahorro||''}" placeholder="0" oninput="setNum(${iid},'ahorro',this.value)"></div>`;
+  } else if(cap.estado==='no'){
+    // ¿alguien la cubre? elegir acreedora
+    const otras=_junta.integrantes.filter(x=>x.integranteId!==iid);
+    h+=`<div class="fld"><label>¿Quién cubre?</label><select onchange="setCubre(${iid},this.value)"><option value="">Nadie (queda debiendo)</option>${otras.map(o=>`<option value="${o.integranteId}">${esc(o.nombre)}</option>`).join('')}</select></div>`;
+  }
+  box.innerHTML=h;
+}
+
+// cuando una NO pagó y otra la cubre: registra solidario en la CUBRIDORA
+function setCubre(deudorId,acreedorId){
+  // limpia solidario previo hacia este deudor
+  Object.keys(_junta._cap).forEach(k=>{ if(_junta._cap[k].porQuien==deudorId){ _junta._cap[k].solidario=0; _junta._cap[k].porQuien=null; } });
+  if(acreedorId){
+    const it=_junta.integrantes.find(x=>x.integranteId===deudorId);
+    const cap=_junta._cap[acreedorId];
+    cap.solidario=(cap.solidario||0)+it.cuota;
+    cap.porQuien=deudorId;
+    // si la acreedora estaba "cubierta" o "no", súbela a pago implícito de su parte también
+    toast(_nombre(acreedorId)+' cubre '+fmt(it.cuota)+' de '+_nombre(deudorId));
+  }
+  recalc();
+}
+function _nombre(iid){ const i=_junta.integrantes.find(x=>x.integranteId===iid); return i?i.nombre:''; }
+function setNum(iid,campo,val){ _junta._cap[iid][campo]=+val||0; recalc(); }
+
+function recalc(){
+  let cap=0;
+  Object.values(_junta._cap).forEach(c=>{ cap+=(c.propio||0)+(c.solidario||0)+(c.multa||0)+(c.ahorro||0); });
+  const el=document.getElementById('j-cap'); if(el) el.textContent=fmt(cap);
+}
+
+async function guardarReparto(){
+  const detalle=_junta.integrantes.map(i=>{
+    const c=_junta._cap[i.integranteId];
+    return { integranteId:i.integranteId, propio:c.propio||0, solidario:c.solidario||0, porQuien:c.porQuien||null, multa:c.multa||0, ahorro:c.ahorro||0, presente:c.estado!=='no' };
+  }).filter(d=>d.propio||d.solidario||d.multa||d.ahorro);
+  if(!detalle.length){ toast('No hay nada capturado'); return; }
+  const total=detalle.reduce((a,d)=>a+d.propio+d.solidario+d.multa+d.ahorro,0);
+  try{
+    const idk='junta-'+_junta.juntaId+'-'+Date.now();
+    await api('POST','/api/g/juntas/'+_junta.juntaId+'/pago',{ total, detalle, idempotencyKey:idk });
+    toast('Pagos registrados: '+fmt(total));
+    pintCierre();
+  }catch(e){
+    if(e.data&&e.data.totalCapturado!=null){ toast('El total no cuadra: capturado '+fmt(e.data.totalCapturado)); }
+    else toast(e.message||'Error');
+  }
+}
+
+let _fotoCierre=null;
+function pintCierre(){
+  const box=document.getElementById('cierre-box');
+  box.innerHTML=`<div class="card"><div class="g-nm" style="font-size:.9rem;margin-bottom:8px">Cerrar la junta</div>
+    <div class="foto-wrap">
+      <button class="btn o" style="width:auto;margin:0" onclick="document.getElementById('foto-in').click()">📷 Foto del grupo</button>
+      <img id="foto-prev" class="foto-prev" style="display:none">
+    </div>
+    <input type="file" id="foto-in" accept="image/*" capture="environment" style="display:none" onchange="cargarFoto(this)">
+    <button class="btn grn" style="margin-top:12px" onclick="cerrarJunta()">Cerrar junta con foto</button>
+  </div>`;
+}
+function cargarFoto(inp){
+  const f=inp.files&&inp.files[0]; if(!f) return;
+  const rd=new FileReader();
+  rd.onload=()=>{ _fotoCierre=rd.result; const p=document.getElementById('foto-prev'); p.src=rd.result; p.style.display='block'; };
+  rd.readAsDataURL(f);
+}
+async function cerrarJunta(){
+  let lat=null,lng=null;
+  try{ const pos=await new Promise((ok,no)=>navigator.geolocation.getCurrentPosition(ok,no,{timeout:5000})); lat=pos.coords.latitude; lng=pos.coords.longitude; }catch(_){}
+  try{
+    const r=await api('POST','/api/g/juntas/'+_junta.juntaId+'/cerrar',{ foto:_fotoCierre, lat, lng });
+    toast(r.al100?'Junta cerrada al 100% ✓':('Cerrada · faltó '+fmt(r.faltante)));
+    _fotoCierre=null;
+    setTimeout(cargarAgenda,900);
+  }catch(e){ toast(e.message||'Error al cerrar'); }
+}
+
+// ===== NAVEGACIÓN =====
+function navTo(t){
+  document.querySelectorAll('.navb').forEach(b=>b.classList.toggle('on',b.dataset.nav===t));
+  if(t==='agenda') cargarAgenda();
+  if(t==='grupos') cargarGrupos();
+}
+
+// ===== MIS GRUPOS (formar + expediente) =====
+async function cargarGrupos(){
+  document.getElementById('hTitle').textContent='Mis grupos';
+  const c=document.getElementById('content');
+  c.innerHTML='<div class="empty">Cargando…</div>';
+  try{
+    const d=await api('GET','/api/g/grupos');
+    document.getElementById('hSub').textContent=(d.total||0)+' grupo'+(d.total===1?'':'s');
+    let h='<button class="btn" onclick="formGrupo()">+ Formar grupo nuevo</button>';
+    if(!d.grupos||!d.grupos.length){ h+='<div class="empty">Aún no tienes grupos. Forma el primero.</div>'; }
+    else{
+      h+=d.grupos.map(g=>{
+        const pill=g.estado==='formacion'?'pend':g.estado==='autorizado'?'abierta':'cerrada';
+        const ptx=g.estado==='formacion'?'En formación':g.estado==='autorizado'?'Esperando entrega':g.estado==='activo'?'Activo':g.estado;
+        return `<div class="card tap" onclick="verGrupo(${g.grupoId})">
+          <div class="g-h"><div><div class="g-nm">${esc(g.nombre)}</div>
+          <div class="g-meta">${g.integrantes} integrantes · ${g.frecuencia}</div></div>
+          <span class="pill ${pill}">${ptx}</span></div></div>`;
+      }).join('');
+    }
+    c.innerHTML=h;
+  }catch(e){ c.innerHTML='<div class="empty">Error: '+esc(e.message)+'</div>'; }
+}
+
+let _sucursales=[];
+async function formGrupo(){
+  document.getElementById('hTitle').textContent='Formar grupo';
+  const c=document.getElementById('content');
+  if(!_sucursales.length){ try{ _sucursales=await api('GET','/api/sucursales'); }catch(e){ _sucursales=[]; } }
+  const sucOpts=_sucursales.map(s=>`<option value="${s.id}">${esc(s.nombre)}</option>`).join('');
+  c.innerHTML=`<button class="back" onclick="cargarGrupos()">‹ Volver</button>
+    <div class="card">
+      <div class="fld"><label>Nombre</label><input id="f-nombre" placeholder="Las Margaritas"></div>
+      ${_sucursales.length?`<div class="fld"><label>Sucursal</label><select id="f-suc">${sucOpts}</select></div>`:''}
+      <div class="fld"><label>Frecuencia</label><select id="f-frec"><option value="semanal">Semanal</option><option value="catorcenal">Catorcenal</option></select></div>
+      <div class="fld"><label>Monto base</label><input id="f-monto" type="number" value="5000"></div>
+      <div class="fld"><label>Día junta</label><select id="f-dia"><option value="1">Lunes</option><option value="2">Martes</option><option value="3">Miércoles</option><option value="4">Jueves</option><option value="5">Viernes</option><option value="6">Sábado</option><option value="0">Domingo</option></select></div>
+      <div class="fld"><label>Hora</label><input id="f-hora" type="time" value="10:00"></div>
+      <div class="fld"><label>Lugar</label><input id="f-lugar" placeholder="Casa de la presidenta"></div>
+      <button class="btn" style="margin-top:12px" onclick="crearGrupo()">Crear grupo</button>
+    </div>`;
+}
+
+async function crearGrupo(){
+  const nombre=document.getElementById('f-nombre').value.trim();
+  if(!nombre){ toast('Falta el nombre'); return; }
+  const sucEl=document.getElementById('f-suc');
+  try{
+    const r=await api('POST','/api/g/grupos',{
+      nombre, sucursalId:sucEl?+sucEl.value:null, frecuencia:document.getElementById('f-frec').value,
+      montoBase:+document.getElementById('f-monto').value||0,
+      junta:{ dia:+document.getElementById('f-dia').value, hora:document.getElementById('f-hora').value, lugar:document.getElementById('f-lugar').value.trim() }
+    });
+    toast('Grupo creado');
+    verGrupo(r.grupo.id);
+  }catch(e){ toast(e.message||'Error'); }
+}
+
+let _grupoActual=null;
+async function verGrupo(id){
+  _grupoActual=id;
+  document.getElementById('hTitle').textContent='Grupo';
+  const c=document.getElementById('content');
+  c.innerHTML='<div class="empty">Cargando…</div>';
+  try{
+    const d=await api('GET','/api/g/grupos/'+id);
+    const g=d.grupo;
+    document.getElementById('hTitle').textContent=g.nombre;
+    document.getElementById('hSub').textContent=g.estado==='formacion'?'En formación':g.estado;
+    let h='<button class="back" onclick="cargarGrupos()">‹ Mis grupos</button>';
+
+    if(g.estado==='formacion'){
+      h+='<div class="warn">Agrega a las integrantes y sube su INE, comprobante de domicilio y firma. Cuando el expediente esté completo, envíalo a revisión para que el jefe autorice.</div>';
+    }
+
+    // integrantes
+    h+=`<div style="font-weight:700;margin:6px 0 8px">Integrantes (${d.integrantes.length})</div>`;
+    d.integrantes.forEach(i=>{
+      const listo=i.expedienteCompleto;
+      const falt=(i.faltantes||[]).map(_docTxt).join(', ');
+      h+=`<div class="int-row">
+        <div class="int-top"><div><span class="int-nm">${esc(i.nombre)}</span><span class="int-rol">${i.rol}</span></div>
+        <span class="${listo?'':'pill pend'}" style="font-size:.68rem">${listo?'<span style="color:var(--grn-d)">✓ completo</span>':'falta: '+esc(falt)}</span></div>`;
+      if(g.estado==='formacion'){
+        h+=`<div class="qbtns">
+          ${_docBtnC(i,'ineFrente','INE')}
+          ${_docBtnC(i,'comprobanteDom','Domicilio')}
+          ${_docBtnC(i,'firma','Firma')}
+        </div>`;
+      }
+      h+=`</div>`;
+    });
+
+    if(g.estado==='formacion'){
+      h+=`<div class="card" style="margin-top:10px">
+        <div class="fld"><label>Nombre</label><input id="i-nombre" placeholder="Nombre de la integrante"></div>
+        <div class="fld"><label>Teléfono</label><input id="i-tel" placeholder="Opcional"></div>
+        <div class="fld"><label>Domicilio</label><input id="i-dom" placeholder="Calle, colonia"></div>
+        <div class="fld"><label>Monto</label><input id="i-monto" type="number" value="${g.montoBase||5000}"></div>
+        <div class="fld"><label>Cargo</label><select id="i-rol"><option value="socia">Socia</option><option value="presidenta">Presidenta</option><option value="tesorera">Tesorera</option><option value="secretaria">Secretaria</option></select></div>
+        <button class="btn o" style="margin-top:8px" onclick="addInt(${id})">+ Agregar integrante</button>
+      </div>`;
+      // enviar a revisión = solo verificar que esté listo; el admin autoriza
+      h+=`<button class="btn grn" style="margin-top:12px" onclick="revisarGrupo(${id})">Enviar a revisión</button>`;
+    } else {
+      h+=`<div class="card" style="margin-top:10px"><div class="g-meta">Este grupo ya fue autorizado. El cobro se hace en «Juntas de hoy».</div></div>`;
+    }
+    c.innerHTML=h;
+  }catch(e){ c.innerHTML='<div class="empty">Error: '+esc(e.message)+'</div>'; }
+}
+
+const _DOCTX={ineFrente:'INE',ineReverso:'INE rev.',comprobanteDom:'Domicilio',firma:'Firma',curp:'CURP',solicitud:'Solicitud',fotoNegocio:'Negocio',pagare:'Pagaré'};
+function _docTxt(k){ return _DOCTX[k]||k; }
+function _docBtnC(i,tipo,label){
+  const tiene=(i.docs||[]).includes(tipo);
+  return `<div class="qb ${tiene?'on':''}" onclick="subirDoc(${i.id},'${tipo}')">${tiene?'✓ ':''}${label}</div>`;
+}
+function subirDoc(iid,tipo){
+  const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.capture='environment';
+  inp.onchange=()=>{ const f=inp.files&&inp.files[0]; if(!f) return;
+    const rd=new FileReader();
+    rd.onload=async()=>{ try{ await api('POST','/api/g/integrantes/'+iid+'/doc',{tipo,imagen:rd.result}); toast('Documento subido'); verGrupo(_grupoActual); }catch(e){ toast(e.message||'Error'); } };
+    rd.readAsDataURL(f);
+  };
+  inp.click();
+}
+
+async function addInt(id){
+  const nombre=document.getElementById('i-nombre').value.trim();
+  if(!nombre){ toast('Falta el nombre'); return; }
+  try{
+    await api('POST','/api/g/grupos/'+id+'/integrantes',{
+      nombre, tel:document.getElementById('i-tel').value.trim(),
+      calle:document.getElementById('i-dom').value.trim(),
+      monto:+document.getElementById('i-monto').value||0, rol:document.getElementById('i-rol').value
+    });
+    verGrupo(id);
+  }catch(e){ toast(e.message||'Error'); }
+}
+
+async function revisarGrupo(id){
+  try{
+    const d=await api('GET','/api/g/grupos/'+id+'/expediente');
+    if(!d.total){ toast('Agrega integrantes primero'); return; }
+    if(!d.todosListos){
+      const faltan=d.integrantes.filter(x=>!x.completo).map(x=>x.nombre).join(', ');
+      alert('Faltan documentos de: '+faltan+'\n\nSube INE, domicilio y firma de cada una antes de enviar a revisión.');
+      return;
+    }
+    alert('✓ Expediente completo.\n\nEl grupo está listo. Avísale a tu jefe (admin/supervisor) para que lo autorice desde el panel. Una vez autorizado, el JC entrega y podrás cobrar en las juntas.');
+  }catch(e){ toast(e.message||'Error'); }
+}
+
+// arranque
+cargarAgenda();
+</script>
+</body>
+</html>

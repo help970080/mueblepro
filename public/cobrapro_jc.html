@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#caa23a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="CobraPro">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>CobraPro · JC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#eef1f7;--surf:#fff;--surf-2:#f1f4f9;--line:#dde3ec;--ink:#1b2330;--dim:#5b6675;--faint:#97a2b2;--acc:#d99a0f;--acc-d:#a87a10;--grn:#178a55;--red:#d6432d;--blu:#2f7fd1;--vio:#7c5ce0;--r:13px}
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{background:#05070a;font-family:"Sora",sans-serif;color:var(--ink);display:flex;justify-content:center;min-height:100vh}
+  .mono{font-family:"IBM Plex Mono",monospace;font-feature-settings:"tnum"}
+  .phone{width:100%;max-width:440px;background:var(--bg);min-height:100vh;display:flex;flex-direction:column;box-shadow:0 0 60px rgba(0,0,0,.6)}
+  ::-webkit-scrollbar{width:0}
+  header{padding:15px 17px;background:linear-gradient(180deg,var(--surf),var(--bg));border-bottom:1px solid var(--line);position:sticky;top:0;z-index:10}
+  .hrow{display:flex;align-items:center;gap:11px}
+  .ava{width:42px;height:42px;border-radius:11px;background:linear-gradient(140deg,var(--vio),#5b3fc0);display:grid;place-items:center;font-weight:700;color:#fff;font-size:1rem;flex-shrink:0}
+  .hrow h1{font-size:1.02rem;font-weight:600;line-height:1.1}
+  .hrow .sub{font-size:.74rem;color:var(--faint)}
+  .salir{margin-left:auto;font-size:.78rem;color:var(--acc);cursor:pointer;font-weight:500}
+  .caja{margin:13px 17px 0;background:var(--surf);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:flex;gap:10px;text-align:center}
+  .caja .c{flex:1}
+  .caja .c .l{font-size:.66rem;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);font-weight:600}
+  .caja .c .v{font-size:1.15rem;font-weight:700;margin-top:3px}
+  .caja .c.big .v{font-size:1.5rem;color:var(--grn)}
+  .tabs{display:flex;gap:6px;margin:14px 17px 0}
+  .tab{flex:1;padding:9px;text-align:center;font-size:.82rem;font-weight:600;border-radius:9px;background:var(--surf-2);color:var(--dim);cursor:pointer;border:1px solid var(--line)}
+  .tab.on{background:var(--vio);color:#fff;border-color:var(--vio)}
+  .tab .n{display:inline-block;min-width:18px;padding:0 5px;margin-left:4px;font-size:.7rem;background:rgba(255,255,255,.25);border-radius:9px}
+  main{flex:1;overflow-y:auto;padding:14px 17px 30px}
+  .card{background:var(--surf);border:1px solid var(--line);border-radius:var(--r);padding:13px;margin-bottom:10px}
+  .card .top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+  .card .nm{font-weight:600;font-size:.96rem}
+  .card .meta{font-size:.76rem;color:var(--dim);margin-top:2px;line-height:1.35}
+  .monto{font-weight:700;font-size:1.05rem;color:var(--grn);white-space:nowrap}
+  .btn{border:none;border-radius:9px;padding:10px 14px;font-family:inherit;font-weight:600;font-size:.85rem;cursor:pointer;background:var(--surf-2);color:var(--ink);border:1px solid var(--line)}
+  .btn.grn{background:var(--grn);color:#fff;border-color:var(--grn)}
+  .btn.vio{background:var(--vio);color:#fff;border-color:var(--vio)}
+  .btn.full{width:100%;margin-top:10px}
+  .btn:disabled{opacity:.5}
+  .empty{text-align:center;color:var(--faint);font-size:.85rem;padding:30px 10px}
+  .ov{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center;z-index:99}
+  .sheet{background:var(--bg);width:100%;max-width:440px;border-radius:18px 18px 0 0;padding:18px;max-height:92vh;overflow-y:auto}
+  .sheet h3{font-size:1.05rem;margin-bottom:3px}
+  .sheet .csub{font-size:.78rem;color:var(--dim);margin-bottom:14px}
+  .foto-btn{display:flex;align-items:center;gap:10px;width:100%;padding:13px;border:1.5px dashed var(--line);border-radius:11px;background:var(--surf);color:var(--dim);font-weight:600;font-size:.86rem;cursor:pointer;margin-bottom:10px}
+  .foto-btn.ok{border-style:solid;border-color:var(--grn);color:var(--grn);background:rgba(23,138,85,.06)}
+  .foto-btn .ic{font-size:1.3rem}
+  .thumb{width:46px;height:46px;border-radius:8px;object-fit:cover;border:1px solid var(--line)}
+  .geo{font-size:.8rem;color:var(--dim);margin:4px 0 12px}
+  .geo.ok{color:var(--grn)}
+  .hist-fotos{display:flex;gap:6px;margin-top:8px}
+  .hist-fotos img{width:60px;height:60px;border-radius:8px;object-fit:cover;border:1px solid var(--line)}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:11px 18px;border-radius:11px;font-size:.85rem;z-index:200;max-width:90%;text-align:center}
+  .rz-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:2px 0 14px}
+  .rz-card{background:var(--surf);border:1px solid var(--line);border-radius:14px;padding:13px 14px;position:relative;overflow:hidden}
+  .rz-card .ic{font-size:1.15rem;line-height:1}
+  .rz-card .lbl{font-size:.68rem;color:var(--dim);text-transform:uppercase;letter-spacing:.03em;margin:7px 0 3px}
+  .rz-card .val{font-size:1.32rem;font-weight:800;color:var(--ink);line-height:1.05}
+  .rz-card .sub{font-size:.7rem;color:var(--dim);margin-top:2px}
+  .rz-card.accent{background:linear-gradient(135deg,rgba(124,92,224,.10),rgba(124,92,224,.03));border-color:rgba(124,92,224,.28)}
+  .rz-card.grn{background:linear-gradient(135deg,rgba(34,160,107,.10),rgba(34,160,107,.03));border-color:rgba(34,160,107,.28)}
+  .rz-sec{font-size:.72rem;color:var(--dim);text-transform:uppercase;letter-spacing:.04em;margin:6px 4px 9px;font-weight:700}
+  .qa{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px}
+  .qa-btn{display:flex;flex-direction:column;align-items:flex-start;gap:8px;background:var(--surf);border:1px solid var(--line);border-radius:14px;padding:14px;cursor:pointer;text-align:left;transition:.13s;font-family:inherit}
+  .qa-btn:active{transform:scale(.97)}
+  .qa-btn .qic{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.15rem}
+  .qa-btn .qt{font-size:.9rem;font-weight:700;color:var(--ink)}
+  .qa-btn .qs{font-size:.72rem;color:var(--dim)}
+  .qa-btn .qbadge{position:absolute;top:10px;right:12px;background:var(--vio);color:#fff;font-size:.68rem;font-weight:700;border-radius:10px;padding:1px 7px}
+  .qa-btn{position:relative}
+</style>
+</head>
+<body>
+<div class="phone">
+  <header>
+    <div class="hrow">
+      <div class="ava" id="ava">JC</div>
+      <div><h1 id="jcName">JC</h1><div class="sub" id="jcSub">Jefe de Crédito</div></div>
+      <span class="salir" onclick="salir()">Salir</span>
+    </div>
+    <div class="caja">
+      <div class="c"><div class="l">Recibido</div><div class="v mono" id="k-rec">$0</div></div>
+      <div class="c big"><div class="l">En caja</div><div class="v mono" id="k-saldo">$0</div></div>
+      <div class="c"><div class="l">Entregado</div><div class="v mono" id="k-ent">$0</div></div>
+    </div>
+    <div class="tabs">
+      <div class="tab on" data-t="recibir" onclick="tab('recibir')">Recibir <span class="n" id="n-rec">0</span></div>
+      <div class="tab" data-t="entregar" onclick="tab('entregar')">Entregar <span class="n" id="n-ent">0</span></div>
+      <div class="tab" data-t="hist" onclick="tab('hist')">Historial</div>
+      <div class="tab" data-t="asignar" onclick="tab('asignar')">Asignar <span class="n" id="n-asg">0</span></div>
+    </div>
+    <button class="btn full" style="margin:10px 0 0;background:var(--vio);color:#fff;border-color:var(--vio)" onclick="cerrarDia(this)">🔒 Hacer cierre del día</button>
+    <div id="cierre-info" style="font-size:.74rem;color:var(--dim);text-align:center;margin-top:6px"></div>
+  </header>
+  <main id="main"><div class="empty">Cargando…</div></main>
+</div>
+<script>
+const TOKEN=(()=>{try{return localStorage.getItem('cobrapro_token')}catch(e){return null}})();
+const ME=(()=>{try{return JSON.parse(localStorage.getItem('cobrapro_user')||'null')}catch(e){return null}})();
+if(!TOKEN||!ME||ME.rol!=='jc'){ location.replace('index.html'); }
+try{ const b=JSON.parse(localStorage.getItem('cobrapro_brand')||'null'); if(b&&b.nombre){ document.getElementById('jcSub').textContent=b.nombre+' · Jefe de Crédito'; document.title=b.nombre+' · JC'; } }catch(e){}
+function salir(){ try{localStorage.removeItem('cobrapro_token');localStorage.removeItem('cobrapro_user');}catch(e){} location.replace('index.html'); }
+function money(n){ return '$'+Math.round(n||0).toLocaleString('es-MX'); }
+function toast(m){ const t=document.createElement('div'); t.className='toast'; t.textContent=m; document.body.appendChild(t); setTimeout(()=>t.remove(),2600); }
+async function api(method,path,body){
+  const r=await fetch(path,{method,headers:{'Content-Type':'application/json',Authorization:'Bearer '+TOKEN},body:body?JSON.stringify(body):undefined});
+  if(r.status===401){ salir(); throw new Error('Sesión'); }
+  const d=await r.json().catch(()=>({})); if(!r.ok) throw new Error(d.error||('Error '+r.status)); return d;
+}
+let DATA={caja:{},pendientes:[],porEntregar:[],entregados:[]}, _tab='recibir';
+if(ME) document.getElementById('jcName').textContent=ME.nombre;
+if(ME) document.getElementById('ava').textContent=(ME.nombre||'JC').slice(0,2).toUpperCase();
+async function cargar(){
+  try{ DATA=await api('GET','/api/jc/panel');
+    try{ DATA.asg=await api('GET','/api/asignaciones'); }catch(e){ DATA.asg={porConfirmar:[],enviadas:[],recibidas:[]}; }
+    try{ DATA.asgDest=(await api('GET','/api/asignaciones/destinos')).destinos||[]; }catch(e){ DATA.asgDest=[]; }
+    pintar(); }
+  catch(e){ document.getElementById('main').innerHTML='<div class="empty">'+e.message+'</div>'; }
+}
+function _jcResumen(){
+  const c=DATA.caja||{};
+  const porEnt=DATA.porEntregar||[];
+  const entHoy=(DATA.entregados||[]).filter(s=>{ const f=s.entrega&&s.entrega.fecha; if(!f) return false; const d=new Date(f); const h=new Date(); return d.toDateString()===h.toDateString(); });
+  const montoEntHoy=entHoy.reduce((a,s)=>a+(s.monto||0),0);
+  const montoPorEnt=porEnt.reduce((a,s)=>a+(s.monto||0),0);
+  const nRec=(DATA.pendientes||[]).length;
+  const nEnt=porEnt.length;
+  const nAsg=((DATA.asg||{}).porConfirmar||[]).length;
+  const hoyTxt=new Date().toLocaleDateString('es-MX',{weekday:'long',day:'2-digit',month:'long'});
+  const saludo=(()=>{ const h=new Date().getHours(); return h<12?'Buenos días':h<19?'Buenas tardes':'Buenas noches'; })();
+  const nombre=(document.getElementById('jcName')||{}).textContent||'';
+  // Tarjetas del día (solo datos que ya tenemos)
+  const cards=`
+    <div style="margin:2px 4px 12px"><div style="font-size:1.02rem;font-weight:800;color:var(--ink)">${saludo}, ${nombre} 👋</div><div style="font-size:.76rem;color:var(--dim);text-transform:capitalize">${hoyTxt}</div></div>
+    <div class="rz-grid">
+      <div class="rz-card grn"><div class="ic">📦</div><div class="lbl">Entregado hoy</div><div class="val">${money(montoEntHoy)}</div><div class="sub">${entHoy.length} crédito${entHoy.length===1?'':'s'} entregado${entHoy.length===1?'':'s'}</div></div>
+      <div class="rz-card accent"><div class="ic">🎒</div><div class="lbl">Por entregar</div><div class="val">${money(montoPorEnt)}</div><div class="sub">${nEnt} crédito${nEnt===1?'':'s'} en fila</div></div>
+      <div class="rz-card"><div class="ic">💵</div><div class="lbl">En tu caja</div><div class="val">${money(c.saldo)}</div><div class="sub">disponible ahora</div></div>
+      <div class="rz-card"><div class="ic">📥</div><div class="lbl">Por recibir</div><div class="val">${nRec}</div><div class="sub">asignaci${nRec===1?'ón':'ones'} de efectivo</div></div>
+    </div>`;
+  // Accesos rápidos a lo más frecuente
+  const qa=`
+    <div class="rz-sec">Acciones rápidas</div>
+    <div class="qa">
+      <button class="qa-btn" onclick="tab('entregar')">${nEnt?`<span class="qbadge">${nEnt}</span>`:''}<div class="qic" style="background:rgba(124,92,224,.14)">📦</div><div><div class="qt">Entregar crédito</div><div class="qs">${nEnt?nEnt+' esperando':'con evidencia'}</div></div></button>
+      <button class="qa-btn" onclick="tab('asignar')">${nAsg?`<span class="qbadge">${nAsg}</span>`:''}<div class="qic" style="background:rgba(34,160,107,.14)">💸</div><div><div class="qt">Asignar efectivo</div><div class="qs">${nAsg?nAsg+' por confirmar':'a un puesto'}</div></div></button>
+      <button class="qa-btn" onclick="tab('hist')"><div class="qic" style="background:rgba(90,176,255,.14)">🧾</div><div><div class="qt">Ver historial</div><div class="qs">movimientos y entregas</div></div></button>
+      <button class="qa-btn" onclick="tab('recibir')"><div class="qic" style="background:rgba(224,160,0,.14)">📥</div><div><div class="qt">Recibir efectivo</div><div class="qs">${nRec?nRec+' pendiente'+(nRec===1?'':'s'):'de promotores'}</div></div></button>
+    </div>`;
+  return cards+qa;
+}
+function comoLlegar(saleId){
+  const s=(DATA.porEntregar||[]).find(x=>x.id===saleId); if(!s) return;
+  const tieneGps = (typeof s.lat==='number' && typeof s.lng==='number');
+  const destino = tieneGps ? (s.lat+','+s.lng) : (s.dir||s.cliente||'');
+  const gmaps = tieneGps
+    ? 'https://www.google.com/maps/dir/?api=1&destination='+s.lat+','+s.lng
+    : 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(destino);
+  const waze = tieneGps
+    ? 'https://waze.com/ul?ll='+s.lat+','+s.lng+'&navigate=yes'
+    : 'https://waze.com/ul?q='+encodeURIComponent(destino)+'&navigate=yes';
+  const aviso = tieneGps
+    ? '<div style="background:rgba(34,160,107,.10);border:1px solid rgba(34,160,107,.3);border-radius:9px;padding:9px 11px;margin:10px 0;font-size:.76rem;color:var(--grn,#22a06b)">✓ Ubicación exacta guardada. La navegación te lleva hasta la puerta.</div>'
+    : '<div style="background:rgba(224,160,0,.10);border:1px solid rgba(224,160,0,.3);border-radius:9px;padding:9px 11px;margin:10px 0;font-size:.76rem;color:var(--amb,#e0a000)">⚠️ Este cliente aún no tiene ubicación exacta. El mapa te acerca a la zona por la dirección. Al entregar y capturar el GPS, quedará ubicado con precisión.</div>';
+  const ov=document.createElement('div');
+  ov.className='flmodal-geo';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(10,15,25,.55);display:flex;align-items:flex-end;justify-content:center;z-index:9999';
+  ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
+  ov.innerHTML=`<div style="background:var(--surf,#fff);width:100%;max-width:460px;border-radius:16px 16px 0 0;padding:18px 16px 22px">
+    <div style="text-align:center;margin-bottom:2px"><div style="font-weight:700;font-size:1rem">🧭 Cómo llegar con</div>
+    <div style="font-size:.82rem;color:var(--dim,#888)">${s.cliente||'—'} · ${s.dir||'—'}</div></div>
+    ${aviso}
+    <a href="${gmaps}" target="_blank" onclick="this.closest('.flmodal-geo').remove()" style="display:flex;align-items:center;gap:12px;background:var(--surf-2,#f2f2f2);border:1px solid var(--line,#ddd);border-radius:12px;padding:14px;margin-bottom:10px;text-decoration:none;color:inherit">
+      <div style="width:40px;height:40px;border-radius:10px;background:rgba(34,160,107,.14);display:flex;align-items:center;justify-content:center;font-size:1.2rem">🗺️</div>
+      <div style="flex:1"><div style="font-weight:700">Google Maps</div><div style="font-size:.76rem;color:var(--dim,#888)">Abrir navegación</div></div><div style="color:var(--dim,#bbb)">›</div></a>
+    <a href="${waze}" target="_blank" onclick="this.closest('.flmodal-geo').remove()" style="display:flex;align-items:center;gap:12px;background:var(--surf-2,#f2f2f2);border:1px solid var(--line,#ddd);border-radius:12px;padding:14px;margin-bottom:14px;text-decoration:none;color:inherit">
+      <div style="width:40px;height:40px;border-radius:10px;background:rgba(90,176,255,.14);display:flex;align-items:center;justify-content:center;font-size:1.2rem">📍</div>
+      <div style="flex:1"><div style="font-weight:700">Waze</div><div style="font-size:.76rem;color:var(--dim,#888)">Abrir navegación</div></div><div style="color:var(--dim,#bbb)">›</div></a>
+    <button class="btn full" onclick="this.closest('.flmodal-geo').remove()">Cancelar</button></div>`;
+  document.body.appendChild(ov);
+}
+function pintar(){
+  const c=DATA.caja||{};
+  document.getElementById('k-rec').textContent=money(c.recibido);
+  document.getElementById('k-saldo').textContent=money(c.saldo);
+  document.getElementById('k-ent').textContent=money(c.entregado);
+  document.getElementById('n-rec').textContent=(DATA.pendientes||[]).length;
+  document.getElementById('n-ent').textContent=(DATA.porEntregar||[]).length;
+  const _asg=DATA.asg||{porConfirmar:[]}; const _nasg=document.getElementById('n-asg'); if(_nasg) _nasg.textContent=(_asg.porConfirmar||[]).length;
+  const m=document.getElementById('main');
+  const _volver = (_tab!=='recibir') ? `<button onclick="tab('recibir')" style="display:flex;align-items:center;gap:6px;background:none;border:none;color:var(--vio,#7c5ce0);font-family:inherit;font-size:.86rem;font-weight:600;padding:2px 4px;margin:0 0 10px;cursor:pointer">← Volver al inicio</button>` : '';
+  if(_tab==='asignar'){
+    const dst=DATA.asgDest||[]; const pc=_asg.porConfirmar||[];
+    const hist=((_asg.enviadas||[]).concat(_asg.recibidas||[])).slice(0,20);
+    m.innerHTML=_volver+`<div class="card"><div class="nm">💸 Asignar efectivo a un puesto</div>
+      <div class="meta" style="margin:4px 0 8px">Se descuenta de tu caja y el destino confirma. El promotor nunca recibe.</div>
+      <select id="asg-dest-jc" style="width:100%;background:var(--surf-2);border:1px solid var(--line);color:var(--ink);padding:10px;border-radius:9px;margin-bottom:8px;font-family:inherit">${dst.map(x=>`<option value="${x.tipo}:${x.id}">${x.nombre}</option>`).join('')||'<option value="">No hay otros puestos</option>'}</select>
+      <input id="asg-monto-jc" type="number" inputmode="numeric" placeholder="Monto $" style="width:100%;background:var(--surf-2);border:1px solid var(--line);color:var(--ink);padding:10px;border-radius:9px;margin-bottom:8px">
+      <button class="btn vio full" onclick="asgEnviarJC(this)">Asignar efectivo</button></div>
+      <div class="nm" style="margin:14px 4px 6px">📥 Por confirmar</div>
+      ${pc.length?pc.map(a=>`<div class="card"><div class="top"><div><div class="nm">${a.fromNombre}</div><div class="meta">${a.nota||'Asignación de efectivo'} · ${a.fecha}</div></div><div class="monto">${money(a.monto)}</div></div><div style="display:flex;gap:6px"><button class="btn grn full" onclick="asgConfirmarJC(${a.id})">✓ Confirmar</button><button class="btn full" onclick="asgRechazarJC(${a.id})">Rechazar</button></div></div>`).join(''):'<div class="empty">Nada por confirmar.</div>'}
+      ${hist.length?('<div class="nm" style="margin:14px 4px 6px">Recientes</div>'+hist.map(a=>`<div class="card"><div class="top"><div><div class="meta">${a.estado==='pendiente'?'⏳':a.estado==='recibido'?'✓':'✕'} ${a.fromNombre} → ${a.toNombre} · ${a.estado}</div></div><div class="monto">${money(a.monto)}</div></div></div>`).join('')):''}`;
+    return;
+  }
+  if(_tab==='recibir'){
+    const ps=DATA.pendientes||[];
+    const resumen=_jcResumen();
+    const listaPend = ps.length ? `<div class="rz-sec">Efectivo pendiente de recibir</div>`+ps.map(e=>`<div class="card"><div class="top">
+      <div><div class="nm">${e.cobradorNombre}</div><div class="meta">${e.nota||'Efectivo para créditos'}<br>${new Date(e.creadoEn).toLocaleString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div></div>
+      <div class="monto">${money(e.monto)}</div></div>
+      <button class="btn grn full" onclick="recibir(${e.id},this)">✓ Recibir en mi caja</button></div>`).join('')
+      : `<div class="empty" style="padding:16px 12px">Sin efectivo pendiente de recibir.<br><span style="font-size:.78rem">Cuando un promotor te asigne efectivo, aparecerá aquí.</span></div>`;
+    m.innerHTML = resumen + listaPend;
+  } else if(_tab==='entregar'){
+    const cs=DATA.porEntregar||[];
+    m.innerHTML = _volver + (cs.length ? cs.map(s=>`<div class="card"><div class="top">
+      <div><div class="nm">${s.cliente}</div><div class="meta">${s.folio} · 📞 ${s.tel||'—'}<br>📍 ${s.dir||'—'}<br>👤 ${s.cobrador} · 🏪 ${s.sucursal}</div></div>
+      <div class="monto">${money(s.monto)}</div></div>
+      <button class="btn full" style="margin-bottom:8px;border-color:var(--blu,#5ab0ff);color:var(--blu,#5ab0ff)" onclick="comoLlegar(${s.id})">🧭 Cómo llegar</button>
+      <button class="btn vio full" onclick="abrirEntrega(${s.id},'${(s.cliente||'').replace(/'/g,"\\'")}',${s.monto})">📦 Entregar crédito + evidencia</button></div>`).join('')
+      : `<div class="empty">No hay créditos por entregar${DATA.sucursal?` en <b>${DATA.sucursal}</b>`:''}.<br><span style="font-size:.78rem">Los créditos nuevos que capture la sucursal aparecen aquí automáticamente. El admin también puede enviar un crédito existente desde su Estado de cuenta.</span></div>`);
+  } else {
+    // Historial = registro completo: movimientos de efectivo (entradas y salidas) + créditos entregados
+    const movs=[];
+    (_asg.enviadas||[]).forEach(a=>movs.push({ts:a.creadoEn||a.fecha, out:true, txt:`Asignado a ${a.toNombre}`, sub:(a.estado==='pendiente'?'pendiente de confirmar':a.estado==='recibido'?'confirmado':'rechazado'), monto:a.monto}));
+    (_asg.recibidas||[]).forEach(a=>movs.push({ts:a.creadoEn||a.fecha, out:false, txt:`Recibido de ${a.fromNombre}`, sub:'asignación', monto:a.monto}));
+    (DATA.recibidas||[]).forEach(e=>movs.push({ts:e.creadoEn, out:false, txt:`Efectivo de ${e.cobradorNombre||'cobrador'}`, sub:'entrega de ruta', monto:e.monto}));
+    movs.sort((a,b)=> new Date(b.ts||0)-new Date(a.ts||0));
+    const fmtF=ts=>{ try{ return new Date(ts).toLocaleString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}); }catch(e){ return ''; } };
+    const movsHtml = movs.length ? movs.map(x=>`<div class="card"><div class="top"><div><div class="nm">${x.out?'Salida':'Entrada'} · ${x.txt}</div><div class="meta">${x.sub} · ${fmtF(x.ts)}</div></div><div class="monto" style="color:${x.out?'var(--red)':'var(--grn)'}">${x.out?'−':'+'}${money(x.monto)}</div></div></div>`).join('') : '<div class="empty">Sin movimientos de efectivo todavía.</div>';
+    const es=DATA.entregados||[];
+    const entHtml = es.length ? es.map(s=>`<div class="card"><div class="top">
+      <div><div class="nm">${s.cliente}</div><div class="meta">${s.folio} · ${new Date(s.fecha).toLocaleString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}${s.lat?` · <a href="https://maps.google.com/?q=${s.lat},${s.lng}" target="_blank" style="color:var(--blu)">📍 ubicación</a>`:''}</div></div>
+      <div class="monto">${money(s.monto)}</div></div>
+      <div class="hist-fotos">${s.fotoCasa?`<img src="${s.fotoCasa}" onclick="verFoto('${s.fotoCasa}')">`:''}${s.fotoCliente?`<img src="${s.fotoCliente}" onclick="verFoto('${s.fotoCliente}')">`:''}</div></div>`).join('') : '<div class="empty">Aún no has entregado créditos.</div>';
+    m.innerHTML = _volver + `<div class="nm" style="margin:4px 4px 6px">💵 Movimientos de efectivo</div>${movsHtml}<div class="nm" style="margin:16px 4px 6px">📦 Créditos entregados</div>${entHtml}`;
+  }
+}
+function tab(t){ _tab=t; document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.t===t)); pintar(); }
+async function recibir(id,btn){
+  btn.disabled=true; btn.textContent='Recibiendo…';
+  try{ await api('POST','/api/jc-entregas/'+id+'/recibir'); toast('Efectivo recibido en tu caja'); await cargar(); }
+  catch(e){ toast(e.message); btn.disabled=false; btn.textContent='✓ Recibir en mi caja'; }
+}
+async function asgEnviarJC(btn){
+  const v=document.getElementById('asg-dest-jc').value; if(!v){toast('Elige un destino');return;}
+  const i=v.indexOf(':'); const toTipo=v.slice(0,i), toId=+v.slice(i+1);
+  const monto=+document.getElementById('asg-monto-jc').value; if(!(monto>0)){toast('Monto inválido');return;}
+  btn.disabled=true; btn.textContent='Asignando…';
+  try{ await api('POST','/api/asignaciones',{toTipo,toId,monto}); toast('✓ Asignado · pendiente de confirmación'); await cargar(); }
+  catch(e){ toast(e.message); btn.disabled=false; btn.textContent='Asignar efectivo'; }
+}
+async function asgConfirmarJC(id){ try{ await api('POST','/api/asignaciones/'+id+'/recibir'); toast('✓ Recibido en tu caja'); await cargar(); }catch(e){ toast(e.message); } }
+async function asgRechazarJC(id){ if(!confirm('¿Rechazar? El efectivo regresa a quien lo envió.'))return; try{ await api('POST','/api/asignaciones/'+id+'/rechazar'); toast('Rechazado'); await cargar(); }catch(e){ toast(e.message); } }
+function verFoto(src){ const ov=document.createElement('div'); ov.className='ov'; ov.style.alignItems='center'; ov.onclick=()=>ov.remove();
+  ov.innerHTML=`<img src="${src}" style="max-width:92%;max-height:88vh;border-radius:12px">`; document.body.appendChild(ov); }
+
+/* ===== Entrega con evidencia ===== */
+let _ent={saleId:null,fotoCasa:null,fotoCliente:null,lat:null,lng:null,firma:null};
+function abrirEntrega(saleId,cliente,monto){
+  _ent={saleId,fotoCasa:null,fotoCliente:null,lat:null,lng:null,firma:null};
+  const ov=document.createElement('div'); ov.className='ov'; ov.id='ent-ov';
+  ov.innerHTML=`<div class="sheet">
+    <h3>Entregar crédito</h3>
+    <div class="csub">${cliente} · ${money(monto)}</div>
+    <label class="foto-btn" id="fb-casa"><span class="ic">🏠</span><span id="fb-casa-t">Foto de la casa</span>
+      <input type="file" accept="image/*" capture="environment" style="display:none" onchange="leerFoto(this,'casa')"></label>
+    <label class="foto-btn" id="fb-cli"><span class="ic">🧍</span><span id="fb-cli-t">Foto del cliente</span>
+      <input type="file" accept="image/*" capture="environment" style="display:none" onchange="leerFoto(this,'cliente')"></label>
+    <button class="btn full" id="geo-btn" onclick="capturarGeo()">📍 Capturar ubicación GPS</button>
+    <div class="geo" id="geo-txt">Ubicación: sin capturar</div>
+    <button class="foto-btn" id="fb-pag" style="width:100%;justify-content:flex-start" onclick="abrirPagareFirma()"><span class="ic">📄</span><span id="fb-pag-t">Pagaré — firma del cliente</span></button>
+    <button class="btn vio full" id="ent-ok" onclick="confirmarEntrega(this)">Confirmar entrega</button>
+    <button class="btn full" onclick="document.getElementById('ent-ov').remove()">Cancelar</button>
+  </div>`;
+  ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
+  document.body.appendChild(ov);
+}
+function leerFoto(input,cual){
+  const f=input.files&&input.files[0]; if(!f) return;
+  const rd=new FileReader();
+  rd.onload=()=>{ const img=new Image(); img.onload=()=>{
+    const max=900; let w=img.width,h=img.height; if(w>max||h>max){ if(w>h){h=Math.round(h*max/w);w=max;}else{w=Math.round(w*max/h);h=max;} }
+    const cv=document.createElement('canvas'); cv.width=w; cv.height=h; cv.getContext('2d').drawImage(img,0,0,w,h);
+    const data=cv.toDataURL('image/jpeg',0.55);
+    if(cual==='casa'){ _ent.fotoCasa=data; document.getElementById('fb-casa').classList.add('ok'); document.getElementById('fb-casa-t').textContent='✓ Foto de la casa lista'; }
+    else { _ent.fotoCliente=data; document.getElementById('fb-cli').classList.add('ok'); document.getElementById('fb-cli-t').textContent='✓ Foto del cliente lista'; }
+  }; img.src=rd.result; };
+  rd.readAsDataURL(f);
+}
+function capturarGeo(){
+  const t=document.getElementById('geo-txt');
+  if(!navigator.geolocation){ t.textContent='Este dispositivo no tiene GPS'; return; }
+  t.textContent='Obteniendo ubicación…';
+  navigator.geolocation.getCurrentPosition(p=>{
+    _ent.lat=p.coords.latitude; _ent.lng=p.coords.longitude;
+    t.textContent='✓ Ubicación capturada'; t.classList.add('ok');
+  },err=>{ t.textContent='No se pudo obtener la ubicación ('+err.message+')'; },{enableHighAccuracy:true,timeout:10000});
+}
+async function confirmarEntrega(btn){
+  if(!_ent.fotoCasa||!_ent.fotoCliente){ toast('Faltan las fotos: casa y cliente'); return; }
+  if(!_ent.firma){ toast('Falta la firma del pagaré del cliente'); return; }
+  btn.disabled=true; btn.textContent='Enviando…';
+  try{
+    await api('POST','/api/sales/'+_ent.saleId+'/entregar',{lat:_ent.lat,lng:_ent.lng,fotoCasa:_ent.fotoCasa,fotoCliente:_ent.fotoCliente,firma:_ent.firma});
+    document.getElementById('ent-ov').remove(); toast('Crédito entregado · pagaré firmado'); await cargar();
+  }catch(e){ toast(e.message); btn.disabled=false; btn.textContent='Confirmar entrega'; }
+}
+function numeroALetras(num){
+  const u=['','UNO','DOS','TRES','CUATRO','CINCO','SEIS','SIETE','OCHO','NUEVE','DIEZ','ONCE','DOCE','TRECE','CATORCE','QUINCE','DIECISÉIS','DIECISIETE','DIECIOCHO','DIECINUEVE'];
+  const d=['','','VEINTE','TREINTA','CUARENTA','CINCUENTA','SESENTA','SETENTA','OCHENTA','NOVENTA'];
+  const ce=['','CIENTO','DOSCIENTOS','TRESCIENTOS','CUATROCIENTOS','QUINIENTOS','SEISCIENTOS','SETECIENTOS','OCHOCIENTOS','NOVECIENTOS'];
+  function cent(n){ if(n===0)return''; if(n===100)return'CIEN'; let r=''; const c=Math.floor(n/100),resto=n%100,de=Math.floor(resto/10),un=resto%10; if(c)r+=ce[c]+' '; if(resto<20)r+=u[resto]; else if(resto<30)r+=(resto===20?'VEINTE':'VEINTI'+u[un]); else {r+=d[de]; if(un)r+=' Y '+u[un];} return r.trim(); }
+  function mil(n){ if(n<1000)return cent(n); const m=Math.floor(n/1000),r=n%1000; let t=m===1?'MIL':cent(m)+' MIL'; if(r)t+=' '+cent(r); return t; }
+  function mill(n){ if(n<1000000)return mil(n); const m=Math.floor(n/1000000),r=n%1000000; let t=m===1?'UN MILLÓN':mil(m)+' MILLONES'; if(r)t+=' '+mil(r); return t; }
+  const e=Math.floor(num),c=Math.round((num-e)*100);
+  return (e===0?'CERO':mill(e))+' PESOS '+String(c).padStart(2,'0')+'/100 M.N.';
+}
+async function abrirPagareFirma(){
+  let d; try{ d=await api('GET','/api/sales/'+_ent.saleId+'/pagare'); }catch(e){ toast(e.message); return; }
+  const f=d.fecha?new Date(d.fecha):new Date();
+  const fechaTxt=f.toLocaleDateString('es-MX',{day:'2-digit',month:'long',year:'numeric'});
+  const M=n=>'$'+Math.round(n||0).toLocaleString('es-MX');
+  const ppTxt = d.descuentaPP ? ` El primer pago de ${M(d.primerPago)} se descuenta al inicio; el cliente recibe ${M(d.entregaMonto)}.` : '';
+  const ov=document.createElement('div'); ov.className='ov'; ov.id='pag-ov'; ov.style.alignItems='flex-start';
+  ov.innerHTML=`<div class="sheet" style="max-height:96vh">
+    <h3>📄 Pagaré</h3>
+    <div style="background:#fff;color:#1b2330;border:1px solid var(--line);border-radius:10px;padding:14px;font-size:.8rem;line-height:1.5;max-height:46vh;overflow:auto">
+      <div style="text-align:center;font-weight:700;letter-spacing:.04em">PAGARÉ</div>
+      <div style="display:flex;justify-content:space-between;margin:6px 0;font-size:.74rem"><span><b>Folio:</b> ${d.folio}</span><span><b>Bueno por:</b> ${M(d.total)}</span></div>
+      <div style="font-size:.74rem;margin-bottom:6px">${d.lugar||''}, a ${fechaTxt}</div>
+      <p style="margin:6px 0">Debo y pagaré incondicionalmente a la orden de <b>${d.acreedor}</b> la cantidad de <b>${M(d.total)}</b> (${numeroALetras(d.total)}), valor recibido a mi entera satisfacción, que me obligo a cubrir en <b>${d.pagos}</b> pagos ${d.freq} de <b>${M(d.cuota)}</b> cada uno.${ppTxt}</p>
+      <p style="margin:6px 0;font-size:.72rem;color:#5b6675">En caso de mora, este pagaré causará intereses moratorios a la tasa pactada hasta su total liquidación.</p>
+      <div style="margin-top:8px;font-size:.74rem"><b>Suscriptor:</b> ${d.cliente.nombre}<br><b>Domicilio:</b> ${d.cliente.domicilio}<br><b>CURP:</b> ${d.cliente.curp||'—'} · <b>Tel:</b> ${d.cliente.tel||'—'}</div>
+    </div>
+    <div style="font-size:.78rem;color:var(--dim);margin:12px 0 5px">Firma del cliente (firme con el dedo):</div>
+    <canvas id="firma-pad" width="600" height="220" style="width:100%;height:160px;background:#fff;border:1.5px dashed var(--line);border-radius:10px;touch-action:none"></canvas>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="btn full" onclick="limpiarFirma()">Borrar firma</button>
+      <button class="btn grn full" onclick="guardarFirma()">✓ Guardar firma</button>
+    </div>
+    <button class="btn full" style="margin-top:8px" onclick="document.getElementById('pag-ov').remove()">Cerrar</button>
+  </div>`;
+  document.body.appendChild(ov);
+  initFirmaPad(document.getElementById('firma-pad'));
+}
+let _firmaCanvas=null;
+function initFirmaPad(canvas){
+  _firmaCanvas=canvas; const ctx=canvas.getContext('2d'); ctx.lineWidth=2.5; ctx.lineCap='round'; ctx.strokeStyle='#111';
+  let drawing=false,last=null;
+  const pos=e=>{ const r=canvas.getBoundingClientRect(); const t=e.touches?e.touches[0]:e; return {x:(t.clientX-r.left)*(canvas.width/r.width),y:(t.clientY-r.top)*(canvas.height/r.height)}; };
+  const start=e=>{drawing=true;last=pos(e);e.preventDefault();};
+  const move=e=>{ if(!drawing)return; const p=pos(e); ctx.beginPath(); ctx.moveTo(last.x,last.y); ctx.lineTo(p.x,p.y); ctx.stroke(); last=p; e.preventDefault(); };
+  const end=()=>{drawing=false;};
+  canvas.addEventListener('mousedown',start); canvas.addEventListener('mousemove',move); window.addEventListener('mouseup',end);
+  canvas.addEventListener('touchstart',start,{passive:false}); canvas.addEventListener('touchmove',move,{passive:false}); canvas.addEventListener('touchend',end);
+  canvas._empty=()=>{ const px=ctx.getImageData(0,0,canvas.width,canvas.height).data; for(let i=3;i<px.length;i+=4){ if(px[i]>0) return false; } return true; };
+}
+function limpiarFirma(){ if(_firmaCanvas){ _firmaCanvas.getContext('2d').clearRect(0,0,_firmaCanvas.width,_firmaCanvas.height); } }
+function guardarFirma(){
+  if(!_firmaCanvas || _firmaCanvas._empty()){ toast('El cliente debe firmar primero'); return; }
+  _ent.firma=_firmaCanvas.toDataURL('image/png');
+  document.getElementById('fb-pag').classList.add('ok'); document.getElementById('fb-pag-t').textContent='✓ Pagaré firmado';
+  document.getElementById('pag-ov').remove(); toast('Firma guardada');
+}
+cargar();
+setInterval(cargar,30000);
+// Ping de ubicación para el rastreo del admin/supervisor (mientras la app está abierta)
+function _pingUbic(){ if(!navigator.geolocation) return; navigator.geolocation.getCurrentPosition(function(p){ try{ api('POST','/api/ubicacion/ping',{lat:p.coords.latitude,lng:p.coords.longitude}); }catch(e){} }, function(){}, {enableHighAccuracy:false,timeout:8000,maximumAge:120000}); }
+_pingUbic(); setInterval(_pingUbic, 180000);
+
+async function cerrarDia(btn){
+  const c=DATA.caja||{};
+  if(!confirm(`¿Hacer tu cierre del día?\n\nRecibido: ${money(c.recibido)}\nEntregado en créditos: ${money(c.entregado)}\nEn caja: ${money(c.saldo)}\n\nEl efectivo en caja se queda contigo para seguir entregando créditos, salvo que el admin lo recolecte. Solo queda el registro del cierre.`)) return;
+  btn.disabled=true; btn.textContent='Cerrando…';
+  try{ const r=await api('POST','/api/jc/cierre'); const ci=r.cierre;
+    toast('Cierre registrado'); document.getElementById('cierre-info').textContent=`Último cierre: recibido ${money(ci.recibidoHoy)} · entregado ${money(ci.entregadoHoy)} · en caja ${money(ci.saldoFinal)}`;
+  }catch(e){ toast(e.message); }
+  finally{ btn.disabled=false; btn.textContent='🔒 Hacer cierre del día'; }
+}
+</script>
+<script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){});});}</script>
+</body>
+</html>
