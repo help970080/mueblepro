@@ -410,6 +410,7 @@ function normalizeTenant(b) {
   b.jcEntregas = b.jcEntregas || []; b.jcCierres = b.jcCierres || [];
   b.asignaciones = b.asignaciones || [];
   b.contactos = b.contactos || [];
+  b.catalogo = b.catalogo || [];   // MueblePro: catálogo de artículos
   b.cierresSemana = b.cierresSemana || [];
   b.objetivos = b.objetivos || { suc: {}, cob: {} }; b.objetivos.suc = b.objetivos.suc || {}; b.objetivos.cob = b.objetivos.cob || {};
   b.flujo = b.flujo || [];
@@ -1532,7 +1533,7 @@ app.post('/api/buro/solicitud/:id/declinar', auth, rol('admin', 'supervisor'), (
 });
 
 app.post('/api/sales', auth, rol('admin', 'supervisor', 'sucursal'), (req, res) => {
-  const { nombre, tel, calle, col, ciudad, estado, curp, sucursalId, prom, tipo, plazo, monto, dias, force, clienteExistenteId, articulos } = req.body;
+  const { nombre, tel, calle, col, ciudad, estado, curp, sucursalId, prom, tipo, plazo, monto, dias, force, clienteExistenteId, articulos, items, enganche } = req.body;
 
   // === Candado de Buró: solo cliente NUEVO. ROJO bloquea y dispara solicitud de Vo.Bo al admin. ===
   if (!clienteExistenteId) {
@@ -1602,7 +1603,43 @@ app.post('/api/sales', auth, rol('admin', 'supervisor', 'sucursal'), (req, res) 
     db.clients.push(client);
   }
 
-  const r = calcCredito(tipo, +plazo, +monto, +dias);
+  /* === MueblePro: venta con artículos del catálogo ===
+     Si vienen `items`, el monto financiado NO se teclea: sale del catálogo.
+        monto = suma(precio de contado x cantidad) - enganche
+     De ahí calcCredito aplica el factor del plazo, igual que siempre.
+     Si no vienen items, la venta se comporta exactamente como antes. */
+  let _itemsVenta = null, _totalContado = 0;
+  const _enganche = Math.max(0, Math.round((+enganche || 0) * 100) / 100);
+  let _montoFin = +monto;
+  if (Array.isArray(items) && items.length) {
+    db.catalogo = db.catalogo || [];
+    _itemsVenta = [];
+    let _engMin = 0;
+    for (const it of items.slice(0, 30)) {
+      const art = db.catalogo.find(a => a.id === +it.articuloId);
+      if (!art) return res.status(400).json({ error: 'Artículo no encontrado en el catálogo' });
+      if (art.activo === false) return res.status(400).json({ error: `"${art.nombre}" ya no está activo` });
+      const cant = Math.max(1, Math.min(99, Math.round(+it.cantidad || 1)));
+      if (art.stock != null && art.stock < cant)
+        return res.status(400).json({ error: `Sin existencias de "${art.nombre}" (quedan ${art.stock})` });
+      const precio = +art.precioContado || 0;
+      // Se guarda COPIA del precio: si mañana sube, esta venta conserva el de hoy.
+      _itemsVenta.push({ articuloId: art.id, sku: art.sku || '', nombre: art.nombre, cantidad: cant, precio });
+      _totalContado += precio * cant;
+      _engMin += precio * cant * (art.engancheMinPct || 0) / 100;
+    }
+    _totalContado = Math.round(_totalContado * 100) / 100;
+    _engMin = Math.round(_engMin * 100) / 100;
+    if (_enganche < _engMin)
+      return res.status(400).json({ error: `El enganche mínimo de esta venta es $${_engMin.toFixed(2)}` });
+    if (_enganche > _totalContado)
+      return res.status(400).json({ error: 'El enganche no puede ser mayor al precio de contado' });
+    _montoFin = Math.round((_totalContado - _enganche) * 100) / 100;
+    if (!(_montoFin > 0))
+      return res.status(400).json({ error: 'El enganche cubre el total: esta venta es de contado, no de crédito' });
+  }
+
+  const r = calcCredito(tipo, +plazo, _montoFin, +dias);
   const folio = 'F-' + (1100 + nextId('sales'));
   const promFinal = _canonProm(prom || client.prom || '');  // usa el nombre exacto del usuario cobrador (evita duplicados por mayúsculas/espacios)
   // La venta hereda la sucursal del COBRADOR (si existe como usuario), para que cobrador y sucursal SIEMPRE cuadren.
@@ -1611,9 +1648,22 @@ app.post('/api/sales', auth, rol('admin', 'supervisor', 'sucursal'), (req, res) 
   const sucCred = (_cobU && _cobU.sucursalId)
     ? _cobU.sucursalId
     : (req.user.rol === 'sucursal' ? (req.user.sucursalId || 1) : (clienteExistenteId ? client.sucursalId : (sucursalId || req.user.sucursalId || 1)));
-  const sale = { id: nextId('sales'), folio, clientId: client.id, tipo, plazo: +plazo, monto: +monto, cuota: r.cuota, total: r.total, prom: promFinal, sucursalId: sucCred, entregado: false, createdAt: new Date().toISOString() };
+  const sale = { id: nextId('sales'), folio, clientId: client.id, tipo, plazo: +plazo, monto: _montoFin, cuota: r.cuota, total: r.total, prom: promFinal, sucursalId: sucCred, entregado: false, createdAt: new Date().toISOString() };
   const artLimpios = Array.isArray(articulos) ? articulos.map(x => String(x || '').trim()).filter(Boolean).slice(0, 30) : [];
   if (artLimpios.length) sale.articulos = artLimpios;
+  if (_itemsVenta) {
+    sale.items = _itemsVenta;                    // artículos con precio congelado
+    sale.totalContado = _totalContado;           // precio de lista de la mercancía
+    sale.enganche = _enganche;                   // lo que dejó el cliente
+    // Texto legible para pantallas que ya muestran `articulos`
+    sale.articulos = _itemsVenta.map(i => (i.cantidad > 1 ? i.cantidad + ' x ' : '') + i.nombre);
+    // Se descuentan existencias al levantar la venta (queda apartada la mercancía).
+    for (const i of _itemsVenta) {
+      const art = db.catalogo.find(a => a.id === i.articuloId);
+      if (art && art.stock != null) art.stock = Math.max(0, art.stock - i.cantidad);
+    }
+    logOp('venta_articulos', String(sale.id), { folio, items: _itemsVenta, totalContado: _totalContado, enganche: _enganche, financiado: _montoFin });
+  }
   if (r.descuentaPP) { sale.primerPago = r.primerPago; sale.descuentaPP = true; sale.entregaMonto = r.entregaCliente; }
   db.sales.push(sale);
   movAdd({ id: nextId('movimientos'), saleId: sale.id, fecha: fechaMxHoyDDMM(), concepto: 'Disposición de crédito', origen: 'Sucursal', cargo: r.total, abono: 0 });
@@ -4243,6 +4293,165 @@ app.get('/api/super/voz/consumo', auth, superOnly, async (req,res)=>{
   }
   res.json(out);
 });
+
+/* ==================== CATÁLOGO DE ARTÍCULOS (MueblePro) ====================
+   Los artículos viven en el bloque JSON del tenant (db.catalogo), igual que
+   clientes y ventas. Las FOTOS van a mp_fotos vía fotoGuardar, por la misma
+   razón que las evidencias: un base64 dentro del bloque hace que CADA guardado
+   mueva megabytes. La lista nunca devuelve la foto, solo `tieneFoto`; la imagen
+   se pide aparte y así el catálogo carga ligero en el celular del vendedor.
+   ========================================================================= */
+const ART_CATS = ['Sala', 'Comedor', 'Recámara', 'Colchones', 'Electrodomésticos', 'Electrónica', 'Línea blanca', 'Otros'];
+
+function _artPub(a) {
+  const o = Object.assign({}, a);
+  o.tieneFoto = !!o.foto;
+  delete o.foto;
+  return o;
+}
+// Precio a crédito de un artículo para un plazo dado.
+// Por omisión se calcula con el MISMO factor de tus tarifas (s16/s17/s21/s31),
+// para que al cambiar el factor se actualice todo el catálogo de un jalón.
+// Si el artículo trae precioCreditoFijo > 0, ese manda (para promociones).
+function artPrecioCredito(art, tipo) {
+  const base = +art.precioContado || 0;
+  if (+art.precioCreditoFijo > 0) return { total: +art.precioCreditoFijo, fijo: true };
+  const T = tarifasActuales();
+  const c = T[tipo] || DEFAULT_TARIFAS[tipo];
+  if (!c || !c.factor) return { total: base, fijo: false };
+  return { total: Math.round((base * c.factor + (c.fijo || 0)) * 100) / 100, fijo: false, pagos: c.pagos };
+}
+function _artNormaliza(b, art) {
+  const r2 = x => Math.round((+x || 0) * 100) / 100;
+  art.nombre = String(b.nombre || '').trim().slice(0, 120);
+  art.sku = String(b.sku || '').trim().toUpperCase().slice(0, 40);
+  art.categoria = ART_CATS.includes(b.categoria) ? b.categoria : 'Otros';
+  art.descripcion = String(b.descripcion || '').trim().slice(0, 500);
+  art.precioContado = r2(b.precioContado);
+  art.precioCreditoFijo = r2(b.precioCreditoFijo);
+  art.engancheMinPct = Math.max(0, Math.min(100, +b.engancheMinPct || 0));
+  art.stock = (b.stock === '' || b.stock == null) ? null : Math.max(0, Math.round(+b.stock || 0));
+  art.activo = b.activo !== false;
+  art.publico = b.publico !== false;   // sale o no en el catálogo público
+  return art;
+}
+
+/* --- Lista (la ve todo el que levanta ventas) --- */
+app.get('/api/catalogo', auth, (req, res) => {
+  const soloActivos = req.query.todos !== '1';
+  let lista = (db.catalogo || []).filter(a => soloActivos ? a.activo !== false : true);
+  const q = String(req.query.q || '').trim().toLowerCase();
+  if (q) lista = lista.filter(a =>
+    (a.nombre || '').toLowerCase().includes(q) ||
+    (a.sku || '').toLowerCase().includes(q) ||
+    (a.categoria || '').toLowerCase().includes(q));
+  if (req.query.categoria) lista = lista.filter(a => a.categoria === req.query.categoria);
+  res.json({ articulos: lista.map(_artPub), categorias: ART_CATS });
+});
+
+/* --- Alta --- */
+app.post('/api/catalogo', auth, rol('admin'), async (req, res) => {
+  const b = req.body || {};
+  if (!String(b.nombre || '').trim()) return res.status(400).json({ error: 'El artículo necesita nombre' });
+  if (!(+b.precioContado > 0)) return res.status(400).json({ error: 'El precio de contado debe ser mayor a cero' });
+  db.catalogo = db.catalogo || [];
+  const sku = String(b.sku || '').trim().toUpperCase();
+  if (sku && db.catalogo.some(a => a.sku === sku)) return res.status(400).json({ error: 'Ya existe un artículo con ese SKU' });
+  const art = _artNormaliza(b, { id: nextId('catalogo'), createdAt: new Date().toISOString() });
+  if (b.foto) art.foto = await fotoGuardar(b.foto, 'articulo');
+  db.catalogo.push(art);
+  saveDB();
+  res.status(201).json(_artPub(art));
+});
+
+/* --- Edición --- */
+app.patch('/api/catalogo/:id', auth, rol('admin'), async (req, res) => {
+  const art = (db.catalogo || []).find(a => a.id === +req.params.id);
+  if (!art) return res.status(404).json({ error: 'Artículo no encontrado' });
+  const b = req.body || {};
+  const sku = String(b.sku || '').trim().toUpperCase();
+  if (sku && db.catalogo.some(a => a.sku === sku && a.id !== art.id))
+    return res.status(400).json({ error: 'Ya existe otro artículo con ese SKU' });
+  _artNormaliza(Object.assign({}, art, b), art);
+  if (b.foto) art.foto = await fotoGuardar(b.foto, 'articulo');
+  saveDB();
+  res.json(_artPub(art));
+});
+
+/* --- Baja: se DESACTIVA, nunca se borra (hay ventas que lo referencian) --- */
+app.delete('/api/catalogo/:id', auth, rol('admin'), (req, res) => {
+  const art = (db.catalogo || []).find(a => a.id === +req.params.id);
+  if (!art) return res.status(404).json({ error: 'Artículo no encontrado' });
+  art.activo = false;
+  saveDB();
+  res.json({ ok: true, desactivado: art.nombre });
+});
+
+/* --- Ajuste de existencias --- */
+app.post('/api/catalogo/:id/stock', auth, rol('admin'), (req, res) => {
+  const art = (db.catalogo || []).find(a => a.id === +req.params.id);
+  if (!art) return res.status(404).json({ error: 'Artículo no encontrado' });
+  const { cantidad, motivo } = req.body || {};
+  const antes = art.stock;
+  art.stock = (cantidad === '' || cantidad == null) ? null : Math.max(0, Math.round(+cantidad || 0));
+  logOp('stock', String(art.id), { articulo: art.nombre, antes, despues: art.stock, motivo: motivo || '', por: req.user.nombre });
+  saveDB();
+  res.json(_artPub(art));
+});
+
+/* --- Foto de un artículo (con sesión) --- */
+app.get('/api/catalogo/:id/foto', auth, async (req, res) => {
+  const art = (db.catalogo || []).find(a => a.id === +req.params.id);
+  if (!art || !art.foto) return res.status(404).json({ error: 'Sin foto' });
+  const exp = await fotoExpandir(art, ['foto']);
+  res.json({ foto: exp.foto || null });
+});
+
+/* ==================== CATÁLOGO PÚBLICO (sin sesión) ====================
+   Lo abre cualquiera desde la calle: ve muebles, precio de contado y el pago
+   semanal estimado. NO expone stock, costos ni datos de la operación.
+   ===================================================================== */
+async function _conTenant(tid, fn, res) {
+  const blob = await getTenant(+tid);
+  if (!blob) return res.status(404).json({ error: 'Mueblería no encontrada' });
+  return als.run({ tenantId: +tid, db: blob }, fn);
+}
+
+app.get('/api/publico/:tid/catalogo', (req, res) => _conTenant(req.params.tid, () => {
+  const tipo = ['s16', 's17', 's21', 's31'].includes(req.query.plazo) ? req.query.plazo : 's17';
+  const lista = (db.catalogo || [])
+    .filter(a => a.activo !== false && a.publico !== false)
+    .map(a => {
+      const pc = artPrecioCredito(a, tipo);
+      const pagos = pc.pagos || 17;
+      return {
+        id: a.id, sku: a.sku, nombre: a.nombre, categoria: a.categoria,
+        descripcion: a.descripcion, tieneFoto: !!a.foto,
+        precioContado: a.precioContado,
+        precioCredito: pc.total,
+        pagoSemanal: Math.round((pc.total / pagos) * 100) / 100,
+        pagos,
+        engancheMin: Math.round(a.precioContado * (a.engancheMinPct || 0)) / 100,
+        disponible: a.stock == null ? true : a.stock > 0
+      };
+    });
+  res.json({
+    marca: (db.config && db.config.brand && db.config.brand.nombre) || 'MueblePro',
+    plazo: tipo, categorias: ART_CATS, articulos: lista
+  });
+}, res));
+
+app.get('/api/publico/:tid/foto/:id', (req, res) => _conTenant(req.params.tid, async () => {
+  const art = (db.catalogo || []).find(a => a.id === +req.params.id);
+  if (!art || !art.foto || art.publico === false || art.activo === false)
+    return res.status(404).json({ error: 'Sin foto' });
+  const exp = await fotoExpandir(art, ['foto']);
+  if (!exp.foto) return res.status(404).json({ error: 'Sin foto' });
+  const m = /^data:([^;]+);base64,(.*)$/s.exec(exp.foto);
+  if (!m) return res.json({ foto: exp.foto });
+  res.set('Cache-Control', 'public, max-age=86400');
+  res.type(m[1]).send(Buffer.from(m[2], 'base64'));
+}, res));
 
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api')) return next();
