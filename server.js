@@ -689,10 +689,10 @@ app.patch('/api/users/:id', auth, rol('admin'), (req, res) => {
   if (!u) return res.status(404).json({ error: 'Usuario no encontrado' });
   if (typeof req.body.activo === 'boolean') u.activo = req.body.activo;
   if (req.body.nombre) u.nombre = String(req.body.nombre).trim();
-  if (req.body.rol && ['admin','supervisor','sucursal','cobrador','jc','promotor_grupal'].includes(req.body.rol)) u.rol = req.body.rol;
+  if (req.body.rol && ['admin','supervisor','sucursal','cobrador','jc'].includes(req.body.rol)) u.rol = req.body.rol;
   if (req.body.sucursalId !== undefined) {
     const sid = req.body.sucursalId === null || req.body.sucursalId === '' ? null : +req.body.sucursalId;
-    if ((u.rol === 'cobrador' || u.rol === 'sucursal' || u.rol === 'jc' || u.rol === 'promotor_grupal') && !sid) return res.status(400).json({ error: 'Un cobrador, promotor grupal, JC o usuario de sucursal debe tener una sucursal asignada.' });
+    if ((u.rol === 'cobrador' || u.rol === 'sucursal' || u.rol === 'jc') && !sid) return res.status(400).json({ error: 'Un cobrador, JC o usuario de sucursal debe tener una sucursal asignada.' });
     u.sucursalId = sid;
   }
   let nueva = null;
@@ -1663,6 +1663,30 @@ app.post('/api/sales', auth, rol('admin', 'supervisor', 'sucursal'), (req, res) 
       if (art && art.stock != null) art.stock = Math.max(0, art.stock - i.cantidad);
     }
     logOp('venta_articulos', String(sale.id), { folio, items: _itemsVenta, totalContado: _totalContado, enganche: _enganche, financiado: _montoFin });
+
+    /* --- El enganche ES DINERO REAL: entra a caja el mismo día de la venta ---
+       Sigue la misma regla que un pago: el efectivo llega a la caja de QUIEN LO
+       RECIBIÓ. Si lo cobró un vendedor de calle, NO entra a caja: queda como
+       "por entregar" a su nombre, igual que el cobrador en ruta. Así el enganche
+       nunca queda en el aire ni depende de que alguien lo reporte después. */
+    if (_enganche > 0) {
+      const _fEng = ['efectivo', 'transferencia', 'deposito'].includes(req.body.engancheForma) ? req.body.engancheForma : 'efectivo';
+      const _sidEng = String(sucCred);
+      db.caja[_sidEng] = db.caja[_sidEng] || { inicial: 0, efectivo: 0, banco: 0, entregas: 0, retiros: 0 };
+      if (req.user.rol === 'cobrador') {
+        if (_fEng === 'efectivo') {
+          const pe = db.porEntregar.find(p => p.prom === req.user.nombre && String(p.sucursalId) === _sidEng);
+          if (pe) pe.monto += _enganche;
+          else db.porEntregar.push({ id: nextId('porEntregar'), sucursalId: +_sidEng, prom: req.user.nombre, monto: _enganche });
+        } else db.caja[_sidEng].banco += _enganche;
+      } else {
+        if (_fEng === 'efectivo') db.caja[_sidEng].efectivo += _enganche;
+        else db.caja[_sidEng].banco += _enganche;
+      }
+      sale.engancheForma = _fEng;
+      sale.engancheCobradoPor = req.user.nombre;
+      logOp('enganche', String(sale.id), { folio, monto: _enganche, forma: _fEng, recibio: req.user.nombre, rol: req.user.rol, sucursalId: +_sidEng });
+    }
   }
   if (r.descuentaPP) { sale.primerPago = r.primerPago; sale.descuentaPP = true; sale.entregaMonto = r.entregaCliente; }
   db.sales.push(sale);
@@ -4149,150 +4173,9 @@ app.post('/api/transferencias/lote', auth, rol('admin', 'supervisor'), (req, res
 
 // Sirve el portal (index.html) en "/" y en cualquier ruta que NO sea /api
 
-/* ════════════════════════════════════════════════════════════════
-   MÓDULO DE VOZ (llamadas IVR multitenant vía bridge Zadarma)
-   - Cada agencia llama a sus no-pagos con SUS datos (config.voz / brand)
-   - Créditos por agencia: los carga el Super Admin; 1 crédito = 1 llamada CONTESTADA
-   - Cada llamada queda reportada en Contactos (estilo log de Fantasma)
-   ════════════════════════════════════════════════════════════════ */
-const IVR_BRIDGE_URL   = process.env.IVR_BRIDGE_URL || 'https://ivr.legaxia.uk';
-const IVR_BRIDGE_TOKEN = process.env.IVR_API_TOKEN  || 'legaxi_2026_secreto_xyz123';
-function _tid(){ const s = als.getStore(); return s ? s.tenantId : null; }
-
-// Registra (o acumula) en Contactos que ya se llamó al cliente. Equivalente al seguimiento_log de Fantasma.
-function _registrarLlamadaContacto(clientId, info){
-  const iso = _semanaContactos();
-  let rec = db.contactos.find(k => k.semana===iso && k.clientId===clientId);
-  if(!rec){ rec = { id: nextId('contactos'), semana: iso, clientId }; db.contactos.push(rec); }
-  rec.llamadas = rec.llamadas || [];
-  rec.llamadas.push({ fecha:new Date().toISOString(), resultado:info.resultado, contesto:!!info.contesto, duracion:info.duracion||0, disposition:info.disposition||'', grabacion:info.grabacion||null });
-  rec.ultimaLlamada = { fecha:new Date().toISOString(), resultado:info.resultado, contesto:!!info.contesto, grabacion:info.grabacion||null };
-  const humano = rec.por && rec.por !== 'IVR (automático)';
-  if(!humano && !rec.evidencia){ rec.resultado = String(info.resultado).slice(0,80); rec.por = 'IVR (automático)'; rec.fecha = new Date().toISOString(); }
-  const linea = `📞 ${fechaMxHoyDDMM()} · ${info.resultado}` + (info.grabacion ? ' · 🎙️' : '');
-  rec.nota = (rec.nota ? rec.nota + '\n' : '') + linea;
-  if(rec.nota.length > 1500) rec.nota = rec.nota.slice(-1500);
-  return rec;
-}
-
-// Vista previa: a quién se llamaría (no-pagos de la semana con teléfono)
-app.get('/api/voz/candidatos', auth, rol('admin','supervisor'), (req,res)=>{
-  let rows = _listaContactos(_semanaContactos()).filter(r => String(r.tel||'').replace(/\D/g,'').length >= 10);
-  if(req.user.rol==='sucursal') rows = rows.filter(r => Number(r.sucursalId)===Number(req.user.sucursalId));
-  res.json({ total: rows.length, creditosVoz: (db.config&&db.config.creditosVoz)||0,
-    candidatos: rows.map(r=>({ clientId:r.clientId, nombre:r.nombre, tel:r.tel, saldo:r.monto_atraso, sucursalId:r.sucursalId, yaLlamado: !!(r.gestion && r.gestion.llamado) })) });
-});
-
-// Lanzar lote de llamadas para ESTA agencia (gate por créditos; marca = datos de la agencia)
-app.post('/api/voz/lanzar', auth, rol('admin','supervisor'), async (req,res)=>{
-  const tid = _tid();
-  const creditos = (db.config&&db.config.creditosVoz)||0;
-  if(creditos<=0) return res.status(402).json({ error:'sin_creditos', detalle:'Esta agencia no tiene créditos de voz. Pide al Super Admin que recargue.' });
-  const marca = Object.assign(
-    { despacho: (db.config&&db.config.brand&&db.config.brand.nombre) || 'MueblePro' },
-    (db.config&&db.config.voz) || {}
-  );
-  let rows = _listaContactos(_semanaContactos()).filter(r => String(r.tel||'').replace(/\D/g,'').length >= 10);
-  if(req.body.sucursalId!=null)  rows = rows.filter(r => Number(r.sucursalId)===Number(req.body.sucursalId));
-  if(req.body.soloNoLlamados)    rows = rows.filter(r => !(r.gestion && r.gestion.llamado));
-  rows.sort((a,b)=>(b.monto_atraso||0)-(a.monto_atraso||0)); // prioriza MAYOR atraso, igual que la tabla
-  rows = rows.slice(0, creditos); // con créditos limitados, marca primero a los que más deben
-  if(!rows.length) return res.json({ ok:true, enviados:0, mensaje:'No hay clientes por llamar' });
-  const clientes = rows.map(r=>({ nombre:r.nombre, telefono:r.tel, saldo:r.monto_atraso, clientId:r.clientId }));
-  try{
-    const resp = await fetch(IVR_BRIDGE_URL + '/api/llamar-lote', {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer ' + IVR_BRIDGE_TOKEN },
-      body: JSON.stringify({ tenantId: tid, marca, clientes })
-    });
-    const data = await resp.json().catch(()=>({}));
-    if(!resp.ok) return res.status(502).json({ error:'bridge_error', detalle:data.error || ('HTTP '+resp.status), lote:data.lote||null });
-    res.json({ ok:true, enviados: clientes.length, creditosVoz: creditos, marca, bridge: data });
-  }catch(e){ res.status(502).json({ error:'bridge_inaccesible', detalle:e.message }); }
-});
-
-// Estado del lote en curso (proxy al bridge)
-app.get('/api/voz/estado', auth, rol('admin','supervisor'), async (req,res)=>{
-  try{
-    const resp = await fetch(IVR_BRIDGE_URL + '/api/status', { signal: AbortSignal.timeout(5000) });
-    const data = await resp.json();
-    res.json({ ok:true, creditosVoz:(db.config&&db.config.creditosVoz)||0, consumo:(db.config&&db.config.vozConsumo)||0, bridge:data });
-  }catch(e){ res.json({ ok:false, creditosVoz:(db.config&&db.config.creditosVoz)||0, error:'bridge_inaccesible' }); }
-});
-
-// Resultado de la llamada (lo manda el bridge; SIN JWT → resolvemos tenant por tenantId)
-app.post('/api/voz/resultado', async (req,res)=>{
-  const token = (req.headers.authorization||'').replace(/^Bearer\s+/i,'').trim();
-  const expected = process.env.IVR_API_TOKEN || 'legaxi_2026_secreto_xyz123';
-  if(expected && token!==expected) return res.status(401).json({ error:'Token inválido' });
-  const { tenantId, telefono, disposition, duration, event, grabacionUrl } = req.body || {};
-  if(tenantId==null) return res.status(400).json({ error:'tenantId requerido' });
-  if(!telefono)      return res.status(400).json({ error:'telefono requerido' });
-  const blob = await getTenant(+tenantId);
-  if(!blob) return res.status(404).json({ error:'agencia no encontrada' });
-  als.run({ tenantId:+tenantId, db:blob }, ()=>{
-    const tel10 = String(telefono).replace(/\D/g,'').slice(-10);
-    const cli = db.clients.find(c => String(c.tel||'').replace(/\D/g,'').slice(-10)===tel10);
-    if(!cli){ saveRow(+tenantId, blob); return res.json({ ok:true, sinCliente:true }); }
-    if(event==='NOTIFY_RECORD' && grabacionUrl){
-      const rec = db.contactos.find(k => k.semana===_semanaContactos() && k.clientId===cli.id);
-      if(rec){
-        if(rec.ultimaLlamada) rec.ultimaLlamada.grabacion = grabacionUrl;
-        if(rec.llamadas && rec.llamadas.length) rec.llamadas[rec.llamadas.length-1].grabacion = grabacionUrl;
-        rec.nota = (rec.nota ? rec.nota+'\n' : '') + `🎙️ ${grabacionUrl}`;
-      }
-      saveRow(+tenantId, blob); return res.json({ ok:true, grabacion:true });
-    }
-    const dur = parseInt(duration)||0;
-    const disp = String(disposition||'unknown').toLowerCase();
-    let resultado, contesto=false;
-    if(disp==='answered' && dur>=5){ resultado=`✅ Contestó (${dur}s)`; contesto=true; }
-    else if(disp==='answered'){ resultado=`⚠️ Colgó rápido (${dur}s)`; }
-    else if(disp==='busy'){ resultado='⏰ Ocupado'; }
-    else if(disp==='no-answer' || disp==='noanswer'){ resultado='❌ Sin respuesta'; }
-    else if(disp==='cancel' || disp==='cancelled'){ resultado='🚫 Cancelada'; }
-    else if(disp==='failed'){ resultado='⚠️ Falló (número inválido)'; }
-    else { resultado=`${disp} (${dur}s)`; contesto = dur>5; }
-    _registrarLlamadaContacto(cli.id, { resultado, contesto, duracion:dur, disposition:disp, grabacion:grabacionUrl||null });
-    if(contesto){
-      db.config = db.config || {};
-      db.config.creditosVoz = Math.max(0, ((db.config.creditosVoz)||0) - 1);
-      db.config.vozConsumo  = ((db.config.vozConsumo)||0) + 1;
-    }
-    saveRow(+tenantId, blob);
-    res.json({ ok:true, resultado, contesto, creditosVoz:(db.config&&db.config.creditosVoz)||0 });
-  });
-});
-
-// ── Super Admin: cargar créditos y fijar la marca (datos) de una agencia ──
-app.post('/api/super/tenants/:id/voz', auth, superOnly, async (req,res)=>{
-  const tid = +req.params.id;
-  const blob = await getTenant(tid);
-  if(!blob) return res.status(404).json({ error:'Agencia no encontrada' });
-  blob.config = blob.config || {};
-  const { creditos, recargar, despacho, acreedor, telContacto, whatsapp } = req.body || {};
-  if(despacho!=null || acreedor!=null || telContacto!=null || whatsapp!=null){
-    blob.config.voz = blob.config.voz || {};
-    if(despacho!=null)    blob.config.voz.despacho    = String(despacho).slice(0,60);
-    if(acreedor!=null)    blob.config.voz.acreedor    = String(acreedor).slice(0,60);
-    if(telContacto!=null) blob.config.voz.telContacto = String(telContacto).replace(/[^\d]/g,'').slice(0,15);
-    if(whatsapp!=null)    blob.config.voz.whatsapp    = String(whatsapp).replace(/[^\d]/g,'').slice(0,15);
-  }
-  if(creditos!=null) blob.config.creditosVoz = Math.max(0, Math.round(+creditos));
-  if(recargar!=null) blob.config.creditosVoz = Math.max(0, ((blob.config.creditosVoz)||0) + Math.round(+recargar));
-  saveRow(tid, blob);
-  res.json({ ok:true, creditosVoz: blob.config.creditosVoz||0, voz: blob.config.voz||{} });
-});
-
-// ── Super Admin: consumo de voz por agencia ──
-app.get('/api/super/voz/consumo', auth, superOnly, async (req,res)=>{
-  const out = [];
-  for(const t of (SYS.tenants||[])){
-    const b = await getTenant(t.id); if(!b) continue;
-    out.push({ id:t.id, nombre:t.nombre, creditosVoz:(b.config&&b.config.creditosVoz)||0, consumo:(b.config&&b.config.vozConsumo)||0, voz:(b.config&&b.config.voz)||null });
-  }
-  res.json(out);
-});
+/* MÓDULO DE VOZ / IVR: ELIMINADO en MueblePro.
+   Llamaba al bridge Zadarma del VPS (ivr.legaxia.uk) con el token de CobraPro.
+   Fuera de aquí, este sistema no habla con ninguna infraestructura de CobraPro. */
 
 /* ==================== CATÁLOGO DE ARTÍCULOS (MueblePro) ====================
    Los artículos viven en el bloque JSON del tenant (db.catalogo), igual que
@@ -4306,8 +4189,22 @@ const ART_CATS = ['Sala', 'Comedor', 'Recámara', 'Colchones', 'Electrodoméstic
 function _artPub(a) {
   const o = Object.assign({}, a);
   o.tieneFoto = !!o.foto;
-  delete o.foto;
+  o.nFotos = (o.fotos || []).length + (o.foto ? 1 : 0);
+  delete o.foto; delete o.fotos;   // nunca viajan en la lista: se piden aparte
   return o;
+}
+const ART_MAX_FOTOS = 5;
+// Guarda la foto principal + hasta 4 adicionales, todas en mp_fotos.
+async function _artFotos(art, b) {
+  if (b.foto) art.foto = await fotoGuardar(b.foto, 'articulo');
+  if (Array.isArray(b.fotos)) {
+    const extra = [];
+    for (const f of b.fotos.slice(0, ART_MAX_FOTOS - 1)) {
+      if (f) extra.push(await fotoGuardar(f, 'articulo'));
+    }
+    art.fotos = extra;
+  }
+  return art;
 }
 // Precio a crédito de un artículo para un plazo dado.
 // Por omisión se calcula con el MISMO factor de tus tarifas (s16/s17/s21/s31),
@@ -4333,6 +4230,10 @@ function _artNormaliza(b, art) {
   art.stock = (b.stock === '' || b.stock == null) ? null : Math.max(0, Math.round(+b.stock || 0));
   art.activo = b.activo !== false;
   art.publico = b.publico !== false;   // sale o no en el catálogo público
+  // Video: SOLO la liga (Cloudinary, YouTube, etc). Un video dentro de la base
+  // pesaría megabytes por artículo; la URL pesa 100 bytes y la sirve un CDN.
+  const v = String(b.videoUrl || '').trim().slice(0, 500);
+  art.videoUrl = /^https?:\/\//i.test(v) ? v : '';
   return art;
 }
 
@@ -4358,7 +4259,7 @@ app.post('/api/catalogo', auth, rol('admin'), async (req, res) => {
   const sku = String(b.sku || '').trim().toUpperCase();
   if (sku && db.catalogo.some(a => a.sku === sku)) return res.status(400).json({ error: 'Ya existe un artículo con ese SKU' });
   const art = _artNormaliza(b, { id: nextId('catalogo'), createdAt: new Date().toISOString() });
-  if (b.foto) art.foto = await fotoGuardar(b.foto, 'articulo');
+  await _artFotos(art, b);
   db.catalogo.push(art);
   saveDB();
   res.status(201).json(_artPub(art));
@@ -4373,7 +4274,7 @@ app.patch('/api/catalogo/:id', auth, rol('admin'), async (req, res) => {
   if (sku && db.catalogo.some(a => a.sku === sku && a.id !== art.id))
     return res.status(400).json({ error: 'Ya existe otro artículo con ese SKU' });
   _artNormaliza(Object.assign({}, art, b), art);
-  if (b.foto) art.foto = await fotoGuardar(b.foto, 'articulo');
+  await _artFotos(art, b);
   saveDB();
   res.json(_artPub(art));
 });
@@ -4402,10 +4303,18 @@ app.post('/api/catalogo/:id/stock', auth, rol('admin'), (req, res) => {
 /* --- Foto de un artículo (con sesión) --- */
 app.get('/api/catalogo/:id/foto', auth, async (req, res) => {
   const art = (db.catalogo || []).find(a => a.id === +req.params.id);
-  if (!art || !art.foto) return res.status(404).json({ error: 'Sin foto' });
+  if (!art) return res.status(404).json({ error: 'Artículo no encontrado' });
   const exp = await fotoExpandir(art, ['foto']);
-  res.json({ foto: exp.foto || null });
+  const otras = await _fotosDeLista(art.fotos || []);
+  res.json({ foto: exp.foto || null, fotos: otras, videoUrl: art.videoUrl || '' });
 });
+// Expande una lista de referencias "foto:N" a sus imágenes.
+async function _fotosDeLista(refs) {
+  if (!refs || !refs.length) return [];
+  const envuelto = refs.map(r => ({ f: r }));
+  const exp = await fotoExpandirLista(envuelto, ['f']);
+  return exp.map(o => o.f).filter(Boolean);
+}
 
 /* ==================== CATÁLOGO PÚBLICO (sin sesión) ====================
    Lo abre cualquiera desde la calle: ve muebles, precio de contado y el pago
@@ -4427,6 +4336,8 @@ app.get('/api/publico/:tid/catalogo', (req, res) => _conTenant(req.params.tid, (
       return {
         id: a.id, sku: a.sku, nombre: a.nombre, categoria: a.categoria,
         descripcion: a.descripcion, tieneFoto: !!a.foto,
+        nFotos: (a.fotos || []).length + (a.foto ? 1 : 0),
+        videoUrl: a.videoUrl || '',
         precioContado: a.precioContado,
         precioCredito: pc.total,
         pagoSemanal: Math.round((pc.total / pagos) * 100) / 100,
@@ -4442,13 +4353,17 @@ app.get('/api/publico/:tid/catalogo', (req, res) => _conTenant(req.params.tid, (
 }, res));
 
 app.get('/api/publico/:tid/foto/:id', (req, res) => _conTenant(req.params.tid, async () => {
+  // ?n=1..4 devuelve una foto de la galería; sin parámetro, la principal.
   const art = (db.catalogo || []).find(a => a.id === +req.params.id);
-  if (!art || !art.foto || art.publico === false || art.activo === false)
+  if (!art || art.publico === false || art.activo === false)
     return res.status(404).json({ error: 'Sin foto' });
-  const exp = await fotoExpandir(art, ['foto']);
-  if (!exp.foto) return res.status(404).json({ error: 'Sin foto' });
-  const m = /^data:([^;]+);base64,(.*)$/s.exec(exp.foto);
-  if (!m) return res.json({ foto: exp.foto });
+  const n = Math.max(0, Math.round(+req.query.n || 0));
+  let img = null;
+  if (n === 0) { const exp = await fotoExpandir(art, ['foto']); img = exp.foto; }
+  else { const g = await _fotosDeLista(art.fotos || []); img = g[n - 1] || null; }
+  if (!img) return res.status(404).json({ error: 'Sin foto' });
+  const m = /^data:([^;]+);base64,(.*)$/s.exec(img);
+  if (!m) return res.json({ foto: img });
   res.set('Cache-Control', 'public, max-age=86400');
   res.type(m[1]).send(Buffer.from(m[2], 'base64'));
 }, res));
@@ -4460,17 +4375,7 @@ app.get('*', (req, res, next) => {
 });
 
 // ===== ANEXO GRUPAL (se monta solo si FLAG_GRUPAL=1; si no, no hace nada) =====
-try {
-  require('./grupal').montar(app, {
-    pool, USE_PG, als, db, saveDB, saveRow, nextId,
-    auth, rol, logOp, fotoGuardar, fotoExpandirLista,
-    calcCredito, flujoAgregar, movAdd, saldoDe,
-    _normNombre, _canonProm,
-    jwt, JWT_SECRET, getTenant,
-    hoyMXISO: fechaMxHoyISO,
-    hoyMXDDMM: fechaMxHoyDDMM
-  });
-} catch (e) { console.error('⚠ módulo grupal no se pudo montar:', e.message); }
+/* MÓDULO GRUPAL: ELIMINADO en MueblePro (crédito grupal, no aplica a mueblería). */
 
 /* ---------- Arranque (multitenant) ---------- */
 (async () => {
