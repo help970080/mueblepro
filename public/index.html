@@ -56,7 +56,12 @@
         body: JSON.stringify({ usuario: document.getElementById('u').value.trim(), password: document.getElementById('p').value }) });
       const d = await r.json();
       if(!r.ok) throw new Error(d.error || 'No se pudo iniciar sesión');
-      try{ localStorage.setItem('mueblepro_token', d.token); localStorage.setItem('mueblepro_user', JSON.stringify(d.user)); localStorage.setItem('mueblepro_brand', JSON.stringify(d.brand||{nombre:'MueblePro'})); }catch(e){}
+      try{
+        // Guardar con el nombre nuevo (mueblepro_*) y también el viejo (cobrapro_*),
+        // porque super.html aún no se transformó y sigue leyendo cobrapro_token.
+        localStorage.setItem('mueblepro_token', d.token); localStorage.setItem('mueblepro_user', JSON.stringify(d.user)); localStorage.setItem('mueblepro_brand', JSON.stringify(d.brand||{nombre:'MueblePro'}));
+        localStorage.setItem('cobrapro_token', d.token); localStorage.setItem('cobrapro_user', JSON.stringify(d.user)); localStorage.setItem('cobrapro_brand', JSON.stringify(d.brand||{nombre:'MueblePro'}));
+      }catch(e){}
       if(d.super){ location.href='super.html'; return; }
       location.href = dest[d.user.rol] || 'mueblepro.html';
     }catch(e){
