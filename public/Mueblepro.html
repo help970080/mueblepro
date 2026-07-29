@@ -765,7 +765,7 @@
       <div class="filters">
         <input id="u-nombre" placeholder="Nombre completo" style="flex:1;min-width:150px">
         <input id="u-usuario" placeholder="Usuario (ej. areyes)" style="flex:1;min-width:130px">
-        <select id="u-rol"><option value="cobrador">Cobrador</option><option value="promotor_grupal">Promotor Grupal</option><option value="jc">JC (Jefe de Crédito)</option><option value="sucursal">Sucursal</option><option value="supervisor">Supervisor</option><option value="admin">Administrador</option></select>
+        <select id="u-rol"><option value="vendedor">Vendedor de calle</option><option value="cobrador">Cobrador (moto)</option><option value="jc">Almacén / Entregas</option><option value="sucursal">Sucursal</option><option value="supervisor">Supervisor</option><option value="admin">Administrador</option></select>
         <select id="u-suc"></select>
         <input id="u-pass" placeholder="Clave (vacío = automática)" style="min-width:150px">
         <button class="btn gold" onclick="crearUsuario()">Crear</button>
@@ -3788,7 +3788,7 @@ function exList(cl){
   }).join('');
 }
 
-const rolLbl = {admin:'Administrador',supervisor:'Supervisor',sucursal:'Sucursal',cobrador:'Cobrador',jc:'JC (Jefe de Crédito)'};
+const rolLbl = {admin:'Administrador',supervisor:'Supervisor',sucursal:'Sucursal',cobrador:'Cobrador',jc:'Almacén / Entregas',vendedor:'Vendedor de calle'};
 let _sucursales = [];
 if(ME) document.getElementById('meName').textContent = ME.nombre + ' · ' + (rolLbl[ME.rol]||ME.rol);
 if(ME && ME.rol!=='admin'){ var _nf=document.getElementById('nav-flujo'); if(_nf) _nf.style.display='none'; }
@@ -3813,7 +3813,7 @@ async function cargarUsuarios(){
 }
 function editarUsuario(u){
   const sucOpts='<option value="">— sin sucursal —</option>'+_sucursales.map(s=>`<option value="${s.id}" ${s.id===u.sucursalId?'selected':''}>${s.nombre}</option>`).join('');
-  const rolOpts=['cobrador','jc','sucursal','supervisor','admin'].map(r=>`<option value="${r}" ${r===u.rol?'selected':''}>${rolLbl[r]||r}</option>`).join('');
+  const rolOpts=['vendedor','cobrador','jc','sucursal','supervisor','admin'].map(r=>`<option value="${r}" ${r===u.rol?'selected':''}>${rolLbl[r]||r}</option>`).join('');
   const ov=document.createElement('div');
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999';
   ov.innerHTML=`<div style="background:var(--surf-1);border:1px solid var(--line);border-radius:14px;padding:22px;width:min(420px,92vw)">
