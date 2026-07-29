@@ -359,7 +359,7 @@
         <div id="ct-adm-resumen" style="display:flex;gap:8px;flex-wrap:wrap"></div>
       </div>
       <div id="ct-adm-suc" style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"></div>
-      <div style="margin:4px 0 10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap"><select id="ct-adm-fsuc" onchange="ctAdmFiltrar()" style="min-width:220px;background:var(--surf-2);border:1px solid var(--line);color:var(--ink);font-family:'Sora';padding:8px 10px;border-radius:8px"><option value="">Todas las sucursales</option></select><button class="btn" id="ct-btn-llamar" style="display:none;background:#22a06b;color:#fff;border:none" onclick="vozAbrir()">📞 Llamar a los no pagos</button><span id="ct-voz-cred" style="font-size:.78rem;color:var(--dim)"></span></div>
+      <div style="margin:4px 0 10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap"><select id="ct-adm-fsuc" onchange="ctAdmFiltrar()" style="min-width:220px;background:var(--surf-2);border:1px solid var(--line);color:var(--ink);font-family:'Sora';padding:8px 10px;border-radius:8px"><option value="">Todas las sucursales</option></select></div>
       <div style="overflow-x:auto">
         <table id="ct-adm-tbl">
           <thead><tr>
@@ -3141,67 +3141,8 @@ async function pintaContactosAdmin(d){
     const r=await apiU('GET','/api/contactos?semana='+encodeURIComponent(_ctAdmSem));
     _ctAdm=r; pintaContactosAdminTabla(r.rows||[]);
   }catch(e){ document.getElementById('ct-adm-rows').innerHTML='<tr><td colspan="8" style="color:var(--red);padding:12px">'+e.message+'</td></tr>'; }
-  _vozBoton();
 }
-// ===== LLAMADAS IVR a los no pagos (módulo de voz) =====
-let _vozCand=null;
-async function _vozBoton(){
-  const b=document.getElementById('ct-btn-llamar'), c=document.getElementById('ct-voz-cred');
-  if(!b) return;
-  if(!(ME && (ME.rol==='admin'||ME.rol==='supervisor'))){ b.style.display='none'; return; }
-  b.style.display='inline-flex';
-  try{
-    const d=await apiU('GET','/api/voz/candidatos');
-    _vozCand=d;
-    const cred=d.creditosVoz||0;
-    if(c) c.innerHTML = cred>0
-      ? `<b style="color:var(--grn)">${cred}</b> crédito(s) de voz · ${d.total} con teléfono`
-      : `<span style="color:var(--red)">Sin créditos de voz</span> · pide recarga al Super Admin`;
-  }catch(e){ if(c) c.textContent=''; }
-}
-async function vozAbrir(){
-  let d=_vozCand;
-  try{ d=await apiU('GET','/api/voz/candidatos'); _vozCand=d; }catch(e){ alert(e.message); return; }
-  const cred=d.creditosVoz||0;
-  const sucSel=document.getElementById('ct-adm-fsuc');
-  const sucId=sucSel?sucSel.value:'';
-  const sucNom=(sucSel&&sucSel.value)?sucSel.options[sucSel.selectedIndex].text:'Todas las sucursales';
-  let cand=(d.candidatos||[]);
-  if(sucId) cand=cand.filter(x=>String(x.sucursalId)===String(sucId));
-  const noLlamados=cand.filter(x=>!x.yaLlamado).length;
-  if(cred<=0){ alert('Esta agencia no tiene créditos de voz. Pide al Super Admin que recargue.'); return; }
-  if(!cand.length){ alert('No hay clientes con teléfono por llamar en este filtro.'); return; }
-  _flModal(`<h3 style="margin:0 0 4px">📞 Llamar a los no pagos</h3>
-    <p style="font-size:.8rem;color:var(--dim);margin:0 0 12px">Se marca por el IVR con la voz de tu agencia. Cada llamada <b>contestada</b> consume 1 crédito. Los resultados caen solos en esta tabla.</p>
-    <div style="background:var(--surf-2);border:1px solid var(--line);border-radius:9px;padding:10px;font-size:.84rem;margin-bottom:12px">
-      <div>📍 Sucursal: <b>${sucNom}</b></div>
-      <div>👥 Con teléfono: <b>${cand.length}</b> · sin llamar aún: <b>${noLlamados}</b></div>
-      <div>🎟️ Créditos disponibles: <b style="color:var(--grn)">${cred}</b></div>
-    </div>
-    <label style="display:flex;align-items:center;gap:8px;font-size:.84rem;margin-bottom:12px"><input type="checkbox" id="voz-solo-no" checked> Llamar solo a los que aún no han sido llamados</label>
-    <p style="font-size:.75rem;color:var(--faint);margin:0 0 12px">Si hay más clientes que créditos, se marca primero a los de <b>mayor atraso</b>.</p>
-    <div style="display:flex;gap:10px"><button class="btn" style="flex:1" onclick="this.closest('.flmodal').remove()">Cancelar</button><button class="btn" style="flex:1;background:#22a06b;color:#fff;border:none" onclick="vozLanzar(this)">📞 Lanzar llamadas</button></div>`,'520px');
-}
-async function vozLanzar(b){
-  const soloNo=document.getElementById('voz-solo-no').checked;
-  const sucSel=document.getElementById('ct-adm-fsuc');
-  const body={ soloNoLlamados:soloNo };
-  if(sucSel && sucSel.value) body.sucursalId=Number(sucSel.value);
-  b.disabled=true; b.textContent='⏳ Enviando…';
-  try{
-    const r=await apiU('POST','/api/voz/lanzar',body);
-    b.closest('.flmodal').remove();
-    alert(r.enviados>0 ? ('✓ Se enviaron '+r.enviados+' llamada(s) al IVR.\n\nLos resultados irán apareciendo en la columna "Resultado de la visita" conforme contesten.') : (r.mensaje||'No hubo clientes por llamar.'));
-    _vozBoton();
-  }catch(e){
-    const m=String(e.message||'');
-    const amigable = m==='sin_creditos' ? 'Esta agencia no tiene créditos de voz. Pide al Super Admin que recargue.'
-      : m==='bridge_inaccesible' ? 'No se pudo conectar con el sistema de llamadas (IVR). Revisa que el bridge esté encendido y vuelve a intentar.'
-      : m==='bridge_error' ? 'El sistema de llamadas rechazó el lote. Revisa el panel del IVR.'
-      : (m||'No se pudo lanzar el lote.');
-    alert(amigable); b.disabled=false; b.textContent='📞 Lanzar llamadas';
-  }
-}
+// (Módulo de voz/IVR eliminado en MueblePro: no hay conexión con el bridge de CobraPro)
 let _ctAdmAllRows=[];
 function _ctAdmFillFiltro(rows){
   const sel=document.getElementById('ct-adm-fsuc'); if(!sel) return;
