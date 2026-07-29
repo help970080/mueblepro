@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Nueva venta · MueblePro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#eef1f7; --surf-1:#ffffff; --surf-2:#f1f4f9; --ink:#1b2330;
+    --dim:#5b6675; --faint:#97a2b2; --line:#dde3ec;
+    --acc:#d99a0f; --acc-d:#a87a10; --grn:#178a55; --red:#d6432d; --blu:#2563eb;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Sora',system-ui,Arial,sans-serif;-webkit-font-smoothing:antialiased;padding-bottom:74px}
+  .top{position:sticky;top:0;z-index:20;background:var(--surf-1);border-bottom:1px solid var(--line);padding:11px 14px;display:flex;align-items:center;gap:10px}
+  .top .logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--acc),var(--acc-d));display:grid;place-items:center;color:#fff;font-weight:700}
+  .top h1{margin:0;font-size:1rem;font-weight:700;flex:1}
+  .top a{font-size:.82rem;color:var(--dim);text-decoration:none;font-weight:600}
+
+  .search{margin:12px 14px;display:flex;align-items:center;gap:8px;background:var(--surf-1);border:1px solid var(--line);border-radius:12px;padding:0 12px}
+  .search input{flex:1;border:none;outline:none;background:transparent;font-family:inherit;font-size:.92rem;padding:12px 0;color:var(--ink)}
+  .search svg{width:18px;height:18px;color:var(--faint)}
+  .cats{display:flex;gap:7px;overflow-x:auto;padding:0 14px 4px;scrollbar-width:none}
+  .cats::-webkit-scrollbar{display:none}
+  .chip{white-space:nowrap;font-size:.8rem;font-weight:600;padding:7px 13px;border-radius:20px;border:1px solid var(--line);background:var(--surf-1);color:var(--dim);cursor:pointer}
+  .chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;padding:12px 14px}
+  @media(max-width:560px){.grid{grid-template-columns:repeat(2,1fr)}}
+  .prod{background:var(--surf-1);border:1px solid var(--line);border-radius:12px;overflow:hidden;cursor:pointer;position:relative;transition:.1s}
+  .prod:active{transform:scale(.97)}
+  .prod.in{border-color:var(--acc);box-shadow:0 0 0 2px rgba(217,154,15,.2)}
+  .pthumb{aspect-ratio:1;background:var(--surf-2);display:grid;place-items:center;overflow:hidden}
+  .pthumb img{width:100%;height:100%;object-fit:cover}
+  .pthumb .ni{color:var(--faint);font-size:.68rem}
+  .qbadge{position:absolute;top:6px;right:6px;background:var(--acc);color:#fff;min-width:22px;height:22px;border-radius:11px;display:grid;place-items:center;font-size:.78rem;font-weight:700;padding:0 6px}
+  .agot{position:absolute;inset:0;background:rgba(255,255,255,.7);display:grid;place-items:center;font-size:.72rem;font-weight:700;color:var(--red)}
+  .pinfo{padding:8px 9px}
+  .pnom{font-size:.78rem;font-weight:600;line-height:1.2;margin:0 0 3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:1.9em}
+  .pprice{font-size:.86rem;font-weight:700}
+  .psem{font-size:.68rem;color:var(--dim)}
+
+  .cartbar{position:fixed;bottom:0;left:0;right:0;background:var(--ink);color:#fff;padding:12px 16px;display:flex;align-items:center;gap:12px;z-index:30;box-shadow:0 -4px 20px rgba(0,0,0,.15);transform:translateY(100%);transition:.2s}
+  .cartbar.on{transform:none}
+  .cartbar .n{background:var(--acc);width:26px;height:26px;border-radius:13px;display:grid;place-items:center;font-weight:700;font-size:.82rem}
+  .cartbar .lbl{flex:1;font-size:.82rem}
+  .cartbar .lbl b{font-size:1.05rem;display:block;line-height:1.1}
+  .cartbar button{background:var(--acc);color:#fff;border:none;font-family:inherit;font-weight:700;font-size:.92rem;padding:11px 20px;border-radius:11px;cursor:pointer}
+
+  /* hoja de checkout */
+  .sheet{position:fixed;inset:0;z-index:40;background:rgba(15,20,30,.5);display:none;align-items:flex-end;justify-content:center}
+  .sheet.on{display:flex}
+  .sheet-inner{background:var(--bg);width:100%;max-width:560px;max-height:94vh;border-radius:20px 20px 0 0;overflow-y:auto;animation:up .22s ease}
+  @keyframes up{from{transform:translateY(100%)}to{transform:none}}
+  .sh-head{position:sticky;top:0;background:var(--surf-1);border-bottom:1px solid var(--line);padding:15px 18px;display:flex;align-items:center;justify-content:space-between;z-index:2}
+  .sh-head h2{margin:0;font-size:1.05rem}
+  .sh-head .x{cursor:pointer;color:var(--faint);font-size:1.3rem;line-height:1}
+  .sh-body{padding:16px 18px}
+  .sec{background:var(--surf-1);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:13px}
+  .sec h3{margin:0 0 11px;font-size:.82rem;text-transform:uppercase;letter-spacing:.04em;color:var(--dim)}
+  .line{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+  .line:last-child{border-bottom:none}
+  .line .lname{flex:1;font-size:.88rem}
+  .line .lname small{display:block;color:var(--faint);font-size:.72rem}
+  .qty{display:flex;align-items:center;gap:8px}
+  .qty button{width:28px;height:28px;border-radius:8px;border:1px solid var(--line);background:var(--surf-2);font-size:1.1rem;cursor:pointer;color:var(--ink);display:grid;place-items:center}
+  .qty span{min-width:20px;text-align:center;font-weight:600}
+  .field{margin-bottom:12px}
+  .field label{display:block;font-size:.78rem;font-weight:600;color:var(--dim);margin-bottom:5px}
+  .field input,.field select{width:100%;font-family:inherit;font-size:.92rem;border:1px solid var(--line);background:var(--surf-2);color:var(--ink);padding:11px 12px;border-radius:10px;outline:none}
+  .field input:focus,.field select:focus{border-color:var(--acc);background:var(--surf-1)}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .cliente-res{max-height:180px;overflow-y:auto;margin-top:8px}
+  .cli{padding:10px;border:1px solid var(--line);border-radius:10px;margin-bottom:6px;cursor:pointer;font-size:.86rem}
+  .cli:active{background:var(--surf-2)}
+  .cli.sel{border-color:var(--acc);background:rgba(217,154,15,.06)}
+  .cli b{display:block}
+  .cli small{color:var(--faint)}
+  .gps{display:flex;align-items:center;gap:10px;padding:11px;background:var(--surf-2);border-radius:10px;font-size:.84rem}
+  .gps.ok{background:rgba(23,138,85,.08);color:var(--grn)}
+  .gps button{margin-left:auto;font-family:inherit;font-size:.8rem;font-weight:600;border:1px solid var(--line);background:var(--surf-1);padding:7px 12px;border-radius:9px;cursor:pointer;color:var(--ink)}
+  .resumen{background:var(--ink);color:#fff;border-radius:14px;padding:16px;margin-bottom:13px}
+  .rrow{display:flex;justify-content:space-between;padding:5px 0;font-size:.88rem}
+  .rrow.big{font-size:1.05rem;font-weight:700;border-top:1px solid rgba(255,255,255,.15);margin-top:6px;padding-top:11px}
+  .rrow .muted{color:rgba(255,255,255,.6)}
+  .rrow.acc b{color:var(--acc)}
+  .btn-final{width:100%;background:linear-gradient(135deg,var(--acc),var(--acc-d));color:#fff;border:none;font-family:inherit;font-weight:700;font-size:1rem;padding:15px;border-radius:13px;cursor:pointer}
+  .btn-final:disabled{opacity:.5}
+  .toast{position:fixed;bottom:86px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:12px 18px;border-radius:11px;font-size:.86rem;opacity:0;transition:.22s;z-index:100;box-shadow:0 8px 24px rgba(0,0,0,.2);max-width:88%;text-align:center}
+  .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast.err{background:var(--red)}
+  .loading{text-align:center;padding:60px;color:var(--faint)}
+  .spin{width:26px;height:26px;border:3px solid var(--line);border-top-color:var(--acc);border-radius:50%;animation:sp .7s linear infinite;margin:0 auto 10px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .hint{font-size:.74rem;color:var(--faint);margin-top:4px}
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="logo">M</div>
+  <h1>Nueva venta</h1>
+  <a href="mueblepro.html">← Panel</a>
+</div>
+
+<div class="search">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+  <input id="q" placeholder="Buscar mueble…" oninput="renderProds()">
+</div>
+<div class="cats" id="cats"></div>
+
+<div id="prods"><div class="loading"><div class="spin"></div>Cargando catálogo…</div></div>
+
+<div class="cartbar" id="cartbar">
+  <div class="n" id="cart-n">0</div>
+  <div class="lbl">Total contado<b id="cart-total">$0</b></div>
+  <button onclick="abrirCheckout()">Continuar →</button>
+</div>
+
+<!-- CHECKOUT -->
+<div class="sheet" id="sheet">
+  <div class="sheet-inner">
+    <div class="sh-head"><h2>Cerrar venta</h2><span class="x" onclick="cerrarCheckout()">✕</span></div>
+    <div class="sh-body">
+
+      <div class="sec">
+        <h3>Artículos</h3>
+        <div id="ck-items"></div>
+      </div>
+
+      <div class="sec">
+        <h3>Cliente</h3>
+        <div class="field">
+          <input id="ck-cli-q" placeholder="Buscar por nombre o teléfono…" oninput="buscarCliente()">
+        </div>
+        <div class="cliente-res" id="ck-cli-res"></div>
+        <div id="ck-nuevo" style="display:none">
+          <div class="hint" style="margin:2px 0 10px">Cliente nuevo — captura sus datos:</div>
+          <div class="field"><label>Nombre completo *</label><input id="nc-nombre"></div>
+          <div class="row2">
+            <div class="field"><label>Teléfono</label><input id="nc-tel" inputmode="tel"></div>
+            <div class="field"><label>Colonia</label><input id="nc-col"></div>
+          </div>
+          <div class="field"><label>Calle y número *</label><input id="nc-calle"></div>
+          <div class="row2">
+            <div class="field"><label>Ciudad</label><input id="nc-ciudad"></div>
+            <div class="field"><label>CURP</label><input id="nc-curp" style="text-transform:uppercase"></div>
+          </div>
+          <div class="gps" id="gps-box">
+            <span id="gps-txt">📍 Sin ubicación</span>
+            <button onclick="tomarGPS(this)">Tomar GPS</button>
+          </div>
+          <div class="hint">Párate en la puerta del cliente para marcar el domicilio exacto.</div>
+        </div>
+      </div>
+
+      <div class="sec">
+        <h3>Crédito</h3>
+        <div class="row2">
+          <div class="field">
+            <label>Plazo</label>
+            <select id="ck-plazo" onchange="calcResumen()">
+              <option value="s16">16 semanas</option>
+              <option value="s17" selected>17 semanas</option>
+              <option value="s21">21 semanas</option>
+              <option value="s31">31 semanas</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Cobrador (ruta)</label>
+            <select id="ck-cob"><option value="">— asigna el gerente —</option></select>
+          </div>
+        </div>
+        <div class="field">
+          <label>Enganche que deja el cliente</label>
+          <input id="ck-eng" type="number" inputmode="decimal" placeholder="0" oninput="calcResumen()">
+          <div class="hint" id="eng-hint"></div>
+        </div>
+        <div class="field">
+          <label>Forma del enganche</label>
+          <select id="ck-eng-forma">
+            <option value="efectivo">Efectivo</option>
+            <option value="transferencia">Transferencia</option>
+            <option value="deposito">Depósito</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="resumen" id="ck-resumen"></div>
+      <button class="btn-final" id="btn-final" onclick="cerrarVenta()">Registrar venta</button>
+      <div class="hint" style="text-align:center;margin-top:8px" id="aut-hint"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const TOKEN = (()=>{ try{ return localStorage.getItem('mueblepro_token'); }catch(e){ return null; } })();
+const ME = (()=>{ try{ return JSON.parse(localStorage.getItem('mueblepro_user')||'null'); }catch(e){ return null; } })();
+if(!TOKEN){ location.replace('index.html'); }
+
+const FACT={s16:{f:1.6,fj:100,n:16},s17:{f:1.7,fj:200,n:17},s21:{f:1.785,fj:200,n:21},s31:{f:1.86,fj:200,n:31}};
+let PRODS=[], CATS=[], CATF='', CART={}, GPS=null, CLI=null;
+
+async function api(method, path, body){
+  const r = await fetch(path, { method, headers:{'Content-Type':'application/json', Authorization:'Bearer '+TOKEN}, body: body?JSON.stringify(body):undefined });
+  if(r.status===401){ location.replace('index.html'); throw new Error('Sesión expirada'); }
+  const d = await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(d.error || d.message || ('Error '+r.status));
+  return d;
+}
+const money=n=>'$'+(Number(n)||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:0});
+function toast(m,e){ const t=document.getElementById('toast'); t.textContent=m; t.className='toast on'+(e?' err':''); setTimeout(()=>t.className='toast'+(e?' err':''),2800); }
+function esc(s){ return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+async function cargar(){
+  try{
+    const d=await api('GET','/api/catalogo');
+    PRODS=(d.articulos||[]).filter(a=>a.activo!==false);
+    CATS=d.categorias||[];
+    const cc=document.getElementById('cats');
+    cc.innerHTML=`<div class="chip on" onclick="setCat('',this)">Todos</div>`+CATS.map(c=>`<div class="chip" onclick="setCat('${c}',this)">${c}</div>`).join('');
+    // cobradores para asignar
+    try{ const cobs=await api('GET','/api/cobradores'); const sel=document.getElementById('ck-cob');
+      sel.innerHTML='<option value="">— asigna el gerente —</option>'+cobs.map(c=>`<option value="${esc(c.nombre)}">${esc(c.nombre)}</option>`).join(''); }catch(e){}
+    renderProds();
+  }catch(e){ document.getElementById('prods').innerHTML=`<div class="loading">${e.message}</div>`; }
+}
+function setCat(c,el){ CATF=c; document.querySelectorAll('.chip').forEach(x=>x.classList.remove('on')); el.classList.add('on'); renderProds(); }
+
+function pagoSem(a, plazo){
+  const t=FACT[plazo]||FACT.s17;
+  const total = a.precioCreditoFijo>0 ? a.precioCreditoFijo : Math.round(a.precioContado*t.f+t.fj);
+  return Math.round(total/t.n);
+}
+function renderProds(){
+  const q=(document.getElementById('q').value||'').toLowerCase().trim();
+  let list=PRODS.slice();
+  if(CATF) list=list.filter(a=>a.categoria===CATF);
+  if(q) list=list.filter(a=>(a.nombre||'').toLowerCase().includes(q)||(a.sku||'').toLowerCase().includes(q));
+  const cont=document.getElementById('prods');
+  if(!list.length){ cont.innerHTML=`<div class="loading">${PRODS.length?'Sin resultados':'No hay artículos en el catálogo'}</div>`; return; }
+  cont.innerHTML='<div class="grid">'+list.map(a=>{
+    const q=CART[a.id]||0;
+    const sem=pagoSem(a,'s17');
+    const agot=a.stock!=null && a.stock<=0;
+    const img=a.tieneFoto?`<img src="/api/catalogo/${a.id}/img?t=${encodeURIComponent(TOKEN)}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=ni>Sin foto</div>'">`:'<div class="ni">Sin foto</div>';
+    return `<div class="prod${q?' in':''}" onclick="${agot?'':'addCart('+a.id+')'}">
+      <div class="pthumb">${img}${q?`<div class="qbadge">${q}</div>`:''}${agot?'<div class="agot">Agotado</div>':''}</div>
+      <div class="pinfo">
+        <p class="pnom">${esc(a.nombre)}</p>
+        <div class="pprice">${money(a.precioContado)}</div>
+        <div class="psem">${money(sem)}/sem</div>
+      </div>
+    </div>`;
+  }).join('')+'</div>';
+}
+function addCart(id){
+  const a=PRODS.find(x=>x.id===id); if(!a) return;
+  const cur=CART[id]||0;
+  if(a.stock!=null && cur>=a.stock){ toast('No hay más existencias de este artículo',true); return; }
+  CART[id]=cur+1; renderProds(); updBar();
+}
+function updBar(){
+  const ids=Object.keys(CART).filter(k=>CART[k]>0);
+  const nItems=ids.reduce((s,k)=>s+CART[k],0);
+  const total=ids.reduce((s,k)=>{const a=PRODS.find(x=>x.id==k);return s+(a?a.precioContado*CART[k]:0);},0);
+  document.getElementById('cart-n').textContent=nItems;
+  document.getElementById('cart-total').textContent=money(total);
+  document.getElementById('cartbar').classList.toggle('on', nItems>0);
+}
+
+/* -------- checkout -------- */
+function abrirCheckout(){
+  renderCkItems();
+  document.getElementById('ck-cli-q').value=''; document.getElementById('ck-cli-res').innerHTML='';
+  document.getElementById('ck-nuevo').style.display='none';
+  document.getElementById('ck-eng').value=''; CLI=null; GPS=null;
+  document.getElementById('gps-txt').textContent='📍 Sin ubicación';
+  document.getElementById('gps-box').classList.remove('ok');
+  calcResumen();
+  document.getElementById('sheet').classList.add('on');
+}
+function cerrarCheckout(){ document.getElementById('sheet').classList.remove('on'); }
+
+function renderCkItems(){
+  const cont=document.getElementById('ck-items');
+  const ids=Object.keys(CART).filter(k=>CART[k]>0);
+  cont.innerHTML=ids.map(k=>{
+    const a=PRODS.find(x=>x.id==k);
+    return `<div class="line">
+      <div class="lname">${esc(a.nombre)}<small>${money(a.precioContado)} c/u</small></div>
+      <div class="qty">
+        <button onclick="ckQty(${k},-1)">−</button>
+        <span>${CART[k]}</span>
+        <button onclick="ckQty(${k},1)">+</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function ckQty(id,d){
+  const a=PRODS.find(x=>x.id==id);
+  const nv=(CART[id]||0)+d;
+  if(nv<=0){ delete CART[id]; }
+  else if(a.stock!=null && nv>a.stock){ toast('Sin existencias',true); return; }
+  else CART[id]=nv;
+  renderProds(); updBar(); renderCkItems(); calcResumen();
+  if(!Object.keys(CART).filter(k=>CART[k]>0).length){ cerrarCheckout(); }
+}
+
+let _cliT;
+function buscarCliente(){
+  clearTimeout(_cliT);
+  const q=document.getElementById('ck-cli-q').value.trim();
+  _cliT=setTimeout(async()=>{
+    if(q.length<2){ document.getElementById('ck-cli-res').innerHTML=''; return; }
+    try{
+      const r=await api('GET','/api/clients?search='+encodeURIComponent(q));
+      const res=document.getElementById('ck-cli-res');
+      let h=r.slice(0,6).map(c=>`<div class="cli" onclick='selCli(${c.id},${JSON.stringify(esc(c.nombre))})'>
+        <b>${esc(c.nombre)}</b><small>${esc(c.tel||'sin tel')} · ${esc(c.col||c.calle||'')}</small></div>`).join('');
+      h+=`<div class="cli" onclick="nuevoCliente()" style="border-style:dashed;text-align:center;color:var(--acc)">+ Cliente nuevo "${esc(q)}"</div>`;
+      res.innerHTML=h;
+    }catch(e){}
+  },280);
+}
+function selCli(id,nombre){
+  CLI={id,nombre};
+  document.getElementById('ck-nuevo').style.display='none';
+  document.getElementById('ck-cli-res').innerHTML=`<div class="cli sel"><b>✓ ${esc(nombre)}</b><small>cliente existente</small></div>`;
+}
+function nuevoCliente(){
+  CLI={nuevo:true};
+  document.getElementById('ck-cli-res').innerHTML='';
+  document.getElementById('ck-nuevo').style.display='block';
+  document.getElementById('nc-nombre').value=document.getElementById('ck-cli-q').value.trim();
+}
+function tomarGPS(btn){
+  if(!navigator.geolocation){ toast('Este equipo no da ubicación',true); return; }
+  btn.textContent='…'; btn.disabled=true;
+  navigator.geolocation.getCurrentPosition(p=>{
+    GPS={lat:p.coords.latitude,lng:p.coords.longitude};
+    document.getElementById('gps-txt').textContent=`📍 Ubicación marcada (±${Math.round(p.coords.accuracy)}m)`;
+    document.getElementById('gps-box').classList.add('ok');
+    btn.textContent='Actualizar'; btn.disabled=false;
+  },err=>{
+    toast('No se pudo obtener GPS: '+err.message,true);
+    btn.textContent='Reintentar'; btn.disabled=false;
+  },{enableHighAccuracy:true,timeout:10000});
+}
+
+function calcResumen(){
+  const plazo=document.getElementById('ck-plazo').value;
+  const t=FACT[plazo];
+  const ids=Object.keys(CART).filter(k=>CART[k]>0);
+  let contado=0, engMin=0;
+  ids.forEach(k=>{ const a=PRODS.find(x=>x.id==k); contado+=a.precioContado*CART[k]; engMin+=a.precioContado*CART[k]*(a.engancheMinPct||0)/100; });
+  engMin=Math.round(engMin);
+  const eng=+document.getElementById('ck-eng').value||0;
+  const financiado=Math.max(0,contado-eng);
+  const totalCred=Math.round(financiado*t.f+t.fj);
+  const cuota=Math.round(totalCred/t.n);
+  document.getElementById('eng-hint').textContent = engMin>0 ? `Mínimo de esta venta: ${money(engMin)}` : 'Sin enganche mínimo';
+  const bajo = eng>0 && eng<engMin;
+  document.getElementById('ck-resumen').innerHTML=`
+    <div class="rrow"><span class="muted">Precio de contado</span><span>${money(contado)}</span></div>
+    <div class="rrow"><span class="muted">Enganche</span><span>${money(eng)}${bajo?' ⚠️':''}</span></div>
+    <div class="rrow"><span class="muted">Se financia</span><span>${money(financiado)}</span></div>
+    <div class="rrow acc"><span class="muted">Total a crédito (${t.n} sem)</span><b>${money(totalCred)}</b></div>
+    <div class="rrow big"><span>Pago semanal</span><span>${money(cuota)}</span></div>`;
+  const btn=document.getElementById('btn-final');
+  btn.disabled = !ids.length || bajo || eng>contado;
+  document.getElementById('aut-hint').textContent = (ME&&ME.rol==='vendedor') ? 'La venta quedará pendiente de autorización del gerente.' : '';
+}
+
+async function cerrarVenta(){
+  const plazo=document.getElementById('ck-plazo').value;
+  const items=Object.keys(CART).filter(k=>CART[k]>0).map(k=>({articuloId:+k,cantidad:CART[k]}));
+  if(!items.length) return toast('Agrega al menos un artículo',true);
+  if(!CLI) return toast('Selecciona o crea un cliente',true);
+
+  const body={ tipo:plazo, plazo:FACT[plazo].n, items,
+    enganche:+document.getElementById('ck-eng').value||0,
+    engancheForma:document.getElementById('ck-eng-forma').value,
+    prom:document.getElementById('ck-cob').value||'' };
+
+  if(CLI.nuevo){
+    const nombre=document.getElementById('nc-nombre').value.trim();
+    const calle=document.getElementById('nc-calle').value.trim();
+    if(!nombre) return toast('El cliente necesita nombre',true);
+    if(!calle) return toast('Captura calle y número',true);
+    Object.assign(body,{
+      nombre, calle,
+      tel:document.getElementById('nc-tel').value.trim(),
+      col:document.getElementById('nc-col').value.trim(),
+      ciudad:document.getElementById('nc-ciudad').value.trim(),
+      curp:document.getElementById('nc-curp').value.trim()
+    });
+    if(GPS){ body.lat=GPS.lat; body.lng=GPS.lng; }
+  }else{
+    body.clienteExistenteId=CLI.id;
+  }
+
+  const btn=document.getElementById('btn-final'); btn.disabled=true; btn.textContent='Registrando…';
+  try{
+    const r=await api('POST','/api/sales',body);
+    const pend = r.estadoAut==='pendiente';
+    toast(pend ? `Venta ${r.folio} registrada — pendiente de autorización` : `Venta ${r.folio} registrada`);
+    CART={}; updBar(); cerrarCheckout(); renderProds();
+    setTimeout(()=>{ if(confirm('Venta registrada.\n\n¿Levantar otra venta?')) location.reload(); else location.href='mueblepro.html'; },400);
+  }catch(e){ toast(e.message,true); btn.disabled=false; btn.textContent='Registrar venta'; }
+}
+
+document.getElementById('sheet').addEventListener('click',e=>{ if(e.target.id==='sheet') cerrarCheckout(); });
+cargar();
+</script>
+</body>
+</html>
