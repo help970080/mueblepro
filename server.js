@@ -1533,7 +1533,7 @@ app.post('/api/buro/solicitud/:id/declinar', auth, rol('admin', 'supervisor'), (
 });
 
 app.post('/api/sales', auth, rol('admin', 'supervisor', 'sucursal', 'vendedor'), (req, res) => {
-  const { nombre, tel, calle, col, ciudad, estado, curp, sucursalId, prom, tipo, plazo, monto, dias, force, clienteExistenteId, articulos, items, enganche } = req.body;
+  const { nombre, tel, calle, col, ciudad, estado, curp, sucursalId, prom, tipo, plazo, monto, dias, force, clienteExistenteId, articulos, items, enganche, lat, lng } = req.body;
 
   // === Candado de Buró: solo cliente NUEVO. ROJO bloquea y dispara solicitud de Vo.Bo al admin. ===
   if (!clienteExistenteId) {
@@ -1600,6 +1600,8 @@ app.post('/api/sales', auth, rol('admin', 'supervisor', 'sucursal', 'vendedor'),
     }
     const sucFinal = req.user.rol === 'sucursal' ? (req.user.sucursalId || 1) : (sucursalId || req.user.sucursalId || 1);
     client = { id: nextId('clients'), nombre, tel: tel || '', calle, col, ciudad: ciudad || '', estado: estado || '', curp: String(curp || '').trim().toUpperCase(), sucursalId: sucFinal, prom: prom || '' };
+    // GPS del domicilio capturado en la venta (vendedor de calle, parado en la puerta del cliente)
+    if (typeof lat === 'number' && typeof lng === 'number') { client.lat = lat; client.lng = lng; client.geoSrc = 'venta'; }
     db.clients.push(client);
   }
 
