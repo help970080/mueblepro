@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Entregas · MueblePro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#eef1f7;--surf-1:#fff;--surf-2:#f1f4f9;--ink:#1b2330;--dim:#5b6675;--faint:#97a2b2;--line:#dde3ec;--acc:#d99a0f;--acc-d:#a87a10;--grn:#178a55;--red:#d6432d;--blu:#2563eb}
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{background:var(--bg);color:var(--ink);font-family:'Sora',system-ui,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  .top{position:sticky;top:0;z-index:20;background:var(--surf-1);border-bottom:1px solid var(--line);padding:12px 16px;display:flex;align-items:center;gap:10px}
+  .logo{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--acc),var(--acc-d));display:grid;place-items:center;color:#fff;font-weight:700}
+  .top h1{font-size:1.02rem;font-weight:700;flex:1}
+  .top a{font-size:.82rem;color:var(--dim);text-decoration:none;font-weight:600}
+  .wrap{max-width:760px;margin:0 auto;padding:14px 14px 60px}
+  .count{background:var(--surf-1);border:1px solid var(--line);border-radius:12px;padding:12px 15px;margin-bottom:14px;font-size:.88rem;color:var(--dim)}
+  .count b{color:var(--ink);font-size:1.05rem}
+  .ent{background:var(--surf-1);border:1px solid var(--line);border-radius:14px;padding:15px;margin-bottom:13px}
+  .ent .h{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px}
+  .ent .folio{font-weight:700;font-size:.9rem;color:var(--acc-d)}
+  .ent .cli{flex:1}
+  .ent .cli .n{font-weight:600;font-size:1rem}
+  .ent .cli .d{font-size:.8rem;color:var(--dim);margin-top:2px}
+  .arts{background:var(--surf-2);border-radius:10px;padding:9px 12px;font-size:.85rem;margin-bottom:10px}
+  .arts .a{padding:2px 0}
+  .meta{display:flex;gap:14px;font-size:.8rem;color:var(--dim);margin-bottom:12px;flex-wrap:wrap}
+  .meta b{color:var(--ink)}
+  .acts{display:flex;gap:9px}
+  .btn{flex:1;font-family:inherit;font-weight:600;font-size:.88rem;padding:11px;border-radius:10px;cursor:pointer;border:1px solid var(--line);background:var(--surf-1);color:var(--ink);text-decoration:none;text-align:center;display:inline-flex;align-items:center;justify-content:center;gap:5px}
+  .btn.map{color:var(--blu)}
+  .btn.pri{background:linear-gradient(135deg,var(--grn),#0f6b41);color:#fff;border:none}
+  .btn:active{transform:translateY(1px)}
+  .empty{text-align:center;padding:70px 20px;color:var(--dim)}
+  .empty .big{font-size:2.4rem;margin-bottom:10px}
+  .loading{text-align:center;padding:60px;color:var(--faint)}
+  .spin{width:26px;height:26px;border:3px solid var(--line);border-top-color:var(--acc);border-radius:50%;animation:sp .7s linear infinite;margin:0 auto 10px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  /* sheet de entrega */
+  .ov{position:fixed;inset:0;z-index:40;background:rgba(15,20,30,.5);display:none;align-items:flex-end;justify-content:center}
+  .ov.on{display:flex}
+  .sheet{background:var(--bg);width:100%;max-width:560px;max-height:94vh;border-radius:20px 20px 0 0;overflow-y:auto;animation:up .2s ease}
+  @keyframes up{from{transform:translateY(100%)}to{transform:none}}
+  .sh-head{position:sticky;top:0;background:var(--surf-1);border-bottom:1px solid var(--line);padding:14px 18px;display:flex;justify-content:space-between;align-items:center}
+  .sh-head h2{font-size:1.02rem}
+  .sh-head .x{cursor:pointer;color:var(--faint);font-size:1.3rem}
+  .sh-body{padding:16px 18px}
+  .cap{background:var(--surf-1);border:1px solid var(--line);border-radius:13px;padding:14px;margin-bottom:13px}
+  .cap h3{font-size:.82rem;text-transform:uppercase;letter-spacing:.03em;color:var(--dim);margin-bottom:10px}
+  .foto-btn{width:100%;aspect-ratio:16/10;border:2px dashed var(--line);border-radius:11px;background:var(--surf-2);display:grid;place-items:center;cursor:pointer;color:var(--faint);overflow:hidden}
+  .foto-btn img{width:100%;height:100%;object-fit:cover}
+  .foto-btn .ph{text-align:center;font-size:.85rem}
+  .foto-btn .ph .ic{font-size:1.8rem;display:block;margin-bottom:4px}
+  .firma-cv{width:100%;height:170px;background:#fff;border:2px solid var(--line);border-radius:11px;touch-action:none;cursor:crosshair}
+  .firma-tools{display:flex;justify-content:space-between;align-items:center;margin-top:6px}
+  .firma-tools button{font-family:inherit;font-size:.8rem;border:1px solid var(--line);background:var(--surf-1);padding:6px 12px;border-radius:8px;cursor:pointer;color:var(--dim)}
+  .firma-hint{font-size:.76rem;color:var(--faint)}
+  .gps{display:flex;align-items:center;gap:10px;padding:11px;background:var(--surf-1);border:1px solid var(--line);border-radius:11px;font-size:.84rem;margin-bottom:13px}
+  .gps.ok{border-color:var(--grn);color:var(--grn)}
+  .gps button{margin-left:auto;font-family:inherit;font-size:.8rem;font-weight:600;border:1px solid var(--line);background:var(--surf-2);padding:7px 12px;border-radius:9px;cursor:pointer;color:var(--ink)}
+  .btn-final{width:100%;background:linear-gradient(135deg,var(--grn),#0f6b41);color:#fff;border:none;font-family:inherit;font-weight:700;font-size:1rem;padding:15px;border-radius:13px;cursor:pointer}
+  .btn-final:disabled{opacity:.5}
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:12px 18px;border-radius:11px;font-size:.86rem;opacity:0;transition:.22s;z-index:100;max-width:88%;text-align:center}
+  .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast.err{background:var(--red)}
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="logo">M</div>
+  <h1>Entregas de mueble</h1>
+  <a href="#" onclick="salir();return false">Salir</a>
+</div>
+<div class="wrap">
+  <div class="count" id="count">Cargando…</div>
+  <div id="cont"><div class="loading"><div class="spin"></div>Cargando entregas…</div></div>
+</div>
+
+<div class="ov" id="ov"><div class="sheet" id="sheet"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const TOKEN=(()=>{try{return localStorage.getItem('mueblepro_token')}catch(e){return null}})();
+const ME=(()=>{try{return JSON.parse(localStorage.getItem('mueblepro_user')||'null')}catch(e){return null}})();
+if(!TOKEN){ location.replace('index.html'); }
+let ACT=null, FOTO=null, GPS=null;
+
+async function api(method,path,body){
+  const r=await fetch(path,{method,headers:{'Content-Type':'application/json',Authorization:'Bearer '+TOKEN},body:body?JSON.stringify(body):undefined});
+  if(r.status===401){ location.replace('index.html'); throw new Error('Sesión expirada'); }
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(d.error||('Error '+r.status));
+  return d;
+}
+const money=n=>'$'+(Number(n)||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:0});
+function esc(s){return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function toast(m,e){const t=document.getElementById('toast');t.textContent=m;t.className='toast on'+(e?' err':'');setTimeout(()=>t.className='toast'+(e?' err':''),2800);}
+function salir(){ try{localStorage.clear();}catch(e){} location.replace('index.html'); }
+
+async function cargar(){
+  try{
+    const d=await api('GET','/api/entregas-mueble');
+    const list=d.bandeja||[];
+    document.getElementById('count').innerHTML = list.length
+      ? `<b>${list.length}</b> mueble${list.length!==1?'s':''} por entregar`
+      : 'No hay entregas pendientes';
+    const cont=document.getElementById('cont');
+    if(!list.length){ cont.innerHTML='<div class="empty"><div class="big">📦</div><h3>Todo entregado</h3><p>Cuando se autorice una venta, aparecerá aquí para entregar.</p></div>'; return; }
+    cont.innerHTML=list.map(entHTML).join('');
+  }catch(e){ document.getElementById('cont').innerHTML=`<div class="empty">${e.message}</div>`; }
+}
+function entHTML(e){
+  const arts=(e.items&&e.items.length)
+    ? e.items.map(i=>`<div class="a">${i.cantidad>1?i.cantidad+' × ':''}${esc(i.nombre)}</div>`).join('')
+    : (e.articulos||[]).map(a=>`<div class="a">${esc(a)}</div>`).join('');
+  const maps = (e.lat&&e.lng) ? `https://www.google.com/maps/dir/?api=1&destination=${e.lat},${e.lng}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(e.dir)}`;
+  return `<div class="ent">
+    <div class="h">
+      <div class="cli"><div class="folio">${esc(e.folio)}</div><div class="n">${esc(e.cliente)}</div><div class="d">${esc(e.dir)||'sin dirección'} ${e.tel?'· '+esc(e.tel):''}</div></div>
+    </div>
+    <div class="arts">${arts||'<div class="a">—</div>'}</div>
+    <div class="meta"><span>Pago semanal <b>${money(e.cuota)}</b></span><span>${e.plazo} semanas</span>${e.cobrador?`<span>Cobrador <b>${esc(e.cobrador)}</b></span>`:''}</div>
+    <div class="acts">
+      <a class="btn map" href="${maps}" target="_blank">🧭 Cómo llegar</a>
+      <button class="btn pri" onclick='abrirEntrega(${e.saleId},${JSON.stringify(esc(e.cliente))})'>Marcar entregado</button>
+    </div>
+  </div>`;
+}
+
+function abrirEntrega(id,cliente){
+  ACT=id; FOTO=null; GPS=null;
+  document.getElementById('sheet').innerHTML=`
+    <div class="sh-head"><h2>Entregar a ${cliente}</h2><span class="x" onclick="cerrar()">✕</span></div>
+    <div class="sh-body">
+      <div class="cap">
+        <h3>📷 Foto del mueble en casa</h3>
+        <div class="foto-btn" id="fbtn" onclick="pickFoto()"><div class="ph"><span class="ic">📷</span>Tomar foto</div></div>
+      </div>
+      <div class="cap">
+        <h3>✍️ Firma del cliente (recibido)</h3>
+        <canvas class="firma-cv" id="firma"></canvas>
+        <div class="firma-tools"><span class="firma-hint">El cliente firma con el dedo</span><button onclick="limpiarFirma()">Borrar</button></div>
+      </div>
+      <div class="gps" id="gps"><span id="gps-txt">📍 Ubicación de entrega (opcional)</span><button onclick="tomarGPS(this)">Tomar GPS</button></div>
+      <button class="btn-final" id="btn-final" onclick="confirmar()">Confirmar entrega</button>
+    </div>`;
+  document.getElementById('ov').classList.add('on');
+  initFirma();
+}
+function cerrar(){ document.getElementById('ov').classList.remove('on'); }
+
+function pickFoto(){
+  const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.capture='environment';
+  inp.onchange=async()=>{ if(inp.files[0]){ try{ FOTO=await comprimir(inp.files[0],1100,.72); document.getElementById('fbtn').innerHTML=`<img src="${FOTO}">`; }catch(e){ toast('No se pudo procesar la foto',true); } } };
+  inp.click();
+}
+async function comprimir(file,max,q){
+  let bmp; try{ bmp=await createImageBitmap(file); }catch(e){ const url=URL.createObjectURL(file); bmp=await new Promise((ok,er)=>{const im=new Image();im.onload=()=>ok(im);im.onerror=er;im.src=url;}); }
+  let{width:w,height:h}=bmp; if(w>max||h>max){const s=Math.min(max/w,max/h);w=Math.round(w*s);h=Math.round(h*s);}
+  const cv=document.createElement('canvas');cv.width=w;cv.height=h;cv.getContext('2d').drawImage(bmp,0,0,w,h);if(bmp.close)bmp.close();
+  return cv.toDataURL('image/jpeg',q);
+}
+
+// firma con canvas
+let _fctx,_draw=false,_hasFirma=false;
+function initFirma(){
+  const cv=document.getElementById('firma'); const r=cv.getBoundingClientRect();
+  cv.width=r.width; cv.height=r.height; _fctx=cv.getContext('2d'); _fctx.lineWidth=2.5; _fctx.lineCap='round'; _fctx.strokeStyle='#1b2330'; _hasFirma=false;
+  const pos=e=>{const t=e.touches?e.touches[0]:e; const b=cv.getBoundingClientRect(); return {x:t.clientX-b.left,y:t.clientY-b.top};};
+  const start=e=>{e.preventDefault();_draw=true;_hasFirma=true;const p=pos(e);_fctx.beginPath();_fctx.moveTo(p.x,p.y);};
+  const move=e=>{if(!_draw)return;e.preventDefault();const p=pos(e);_fctx.lineTo(p.x,p.y);_fctx.stroke();};
+  const end=()=>_draw=false;
+  cv.addEventListener('mousedown',start);cv.addEventListener('mousemove',move);cv.addEventListener('mouseup',end);cv.addEventListener('mouseleave',end);
+  cv.addEventListener('touchstart',start,{passive:false});cv.addEventListener('touchmove',move,{passive:false});cv.addEventListener('touchend',end);
+}
+function limpiarFirma(){ const cv=document.getElementById('firma'); _fctx.clearRect(0,0,cv.width,cv.height); _hasFirma=false; }
+function firmaData(){ return _hasFirma ? document.getElementById('firma').toDataURL('image/png') : null; }
+
+function tomarGPS(btn){
+  if(!navigator.geolocation){ toast('Sin ubicación',true); return; }
+  btn.textContent='…'; btn.disabled=true;
+  navigator.geolocation.getCurrentPosition(p=>{ GPS={lat:p.coords.latitude,lng:p.coords.longitude}; document.getElementById('gps-txt').textContent=`📍 Ubicación marcada`; document.getElementById('gps').classList.add('ok'); btn.textContent='Actualizar'; btn.disabled=false; },
+    ()=>{ toast('No se pudo obtener GPS',true); btn.textContent='Reintentar'; btn.disabled=false; },{enableHighAccuracy:true,timeout:10000});
+}
+
+async function confirmar(){
+  if(!FOTO) return toast('Falta la foto del mueble',true);
+  const firma=firmaData();
+  if(!firma) return toast('Falta la firma del cliente',true);
+  const btn=document.getElementById('btn-final'); btn.disabled=true; btn.textContent='Guardando…';
+  const body={fotoMueble:FOTO,firma}; if(GPS){body.lat=GPS.lat;body.lng=GPS.lng;}
+  try{
+    const d=await api('POST','/api/sales/'+ACT+'/entregar-mueble',body);
+    toast(`✓ ${d.folio} entregado · empieza a pagar esta semana`);
+    cerrar(); cargar();
+  }catch(e){ toast(e.message,true); btn.disabled=false; btn.textContent='Confirmar entrega'; }
+}
+
+document.getElementById('ov').addEventListener('click',e=>{ if(e.target.id==='ov') cerrar(); });
+cargar();
+setInterval(cargar,30000);
+</script>
+</body>
+</html>
