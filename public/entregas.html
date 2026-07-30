@@ -130,6 +130,7 @@ function entHTML(e){
     <div class="arts">${arts||'<div class="a">—</div>'}</div>
     <div class="meta"><span>Pago semanal <b>${money(e.cuota)}</b></span><span>${e.plazo} semanas</span>${e.cobrador?`<span>Cobrador <b>${esc(e.cobrador)}</b></span>`:''}</div>
     <div class="acts">
+      <a class="btn" href="comprobante.html?id=${e.saleId}" target="_blank">📄 Comprobante</a>
       <a class="btn map" href="${maps}" target="_blank">🧭 Cómo llegar</a>
       <button class="btn pri" onclick='abrirEntrega(${e.saleId},${JSON.stringify(esc(e.cliente))})'>Marcar entregado</button>
     </div>
