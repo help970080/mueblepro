@@ -71,7 +71,7 @@
 <div class="top">
   <div class="logo">M</div>
   <h1>Entregas de mueble</h1>
-  <a href="#" onclick="salir();return false">Salir</a>
+  <a href="#" id="nav-back" onclick="volver();return false">← Panel</a>
 </div>
 <div class="wrap">
   <div class="count" id="count">Cargando…</div>
@@ -98,6 +98,13 @@ const money=n=>'$'+(Number(n)||0).toLocaleString('es-MX',{minimumFractionDigits:
 function esc(s){return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 function toast(m,e){const t=document.getElementById('toast');t.textContent=m;t.className='toast on'+(e?' err':'');setTimeout(()=>t.className='toast'+(e?' err':''),2800);}
 function salir(){ try{localStorage.clear();}catch(e){} location.replace('index.html'); }
+function volver(){
+  // Almacén (jc) solo tiene esta pantalla -> Salir. Los demás vuelven a su panel.
+  if(ME && ME.rol==='jc'){ salir(); }
+  else { location.href='mueblepro.html'; }
+}
+// Ajusta la etiqueta del botón según el rol
+(function(){ try{ if(ME && ME.rol==='jc'){ var b=document.getElementById('nav-back'); if(b) b.textContent='Salir'; } }catch(e){} })();
 
 async function cargar(){
   try{
