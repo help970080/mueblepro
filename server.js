@@ -4396,6 +4396,65 @@ app.post('/api/ventas/:id/rechazar', auth, rol('admin', 'supervisor'), (req, res
   res.json({ ok: true, folio: sale.folio, engancheADevolver: sale.enganche || 0 });
 });
 
+/* ==================== COMPROBANTE DE COMPRA (MueblePro) ====================
+   Arma todos los datos que necesita el comprobante del cliente: sus datos, los
+   artículos, precios, enganche y la tabla de amortización (fechas y montos).
+   Se sirve para autorizar, entregar o cartera — una sola fuente de verdad.
+   ======================================================================= */
+function _frecDias(tipo) {
+  if (tipo === 'diario') return 1;
+  if (tipo === 'quincenal') return 15;
+  if (tipo === 'mensual') return 30;
+  if (tipo === 'unico') return 0;
+  return 7;   // semanal por defecto (s16/s17/s21/s31)
+}
+app.get('/api/sales/:id/comprobante', auth, (req, res) => {
+  const s = db.sales.find(x => x.id == req.params.id);
+  if (!s) return res.status(404).json({ error: 'Venta no encontrada' });
+  const c = db.clients.find(x => x.id === s.clientId) || {};
+  const suc = db.sucursales.find(x => x.id === s.sucursalId);
+  const cuota = +s.cuota || 0;
+  const nCuotas = s.tipo === 'unico' ? 1 : (+s.plazo || 0);
+  const total = +s.total || (cuota * nCuotas) || 0;
+  // Fecha de arranque: entrega del mueble si existe, si no la autorización, si no la creación
+  const iniISO = (s.entregaMercancia && s.entregaMercancia.fecha) || s.autorizadaAt || s.createdAt || new Date().toISOString();
+  const ini = new Date(iniISO);
+  const frec = _frecDias(s.tipo);
+  const saldo = saldoDe(s.id);
+  const pagado = Math.max(0, total - saldo);
+  const cuotasPagadas = cuota > 0 ? Math.floor(pagado / cuota + 0.0001) : 0;
+  const tabla = [];
+  let acum = 0;
+  for (let i = 1; i <= nCuotas; i++) {
+    const monto = (i === nCuotas) ? Math.max(0, total - acum) : cuota;
+    acum += monto;
+    const f = new Date(ini.getTime());
+    if (s.tipo === 'unico') f.setDate(f.getDate() + (+s.plazo || 0));
+    else f.setDate(f.getDate() + i * frec);
+    tabla.push({ n: i, fecha: f.toISOString().slice(0, 10), monto, saldo: Math.max(0, total - acum), pagada: i <= cuotasPagadas });
+  }
+  res.json({
+    marca: (db.config && db.config.brand && db.config.brand.nombre) || 'MueblePro',
+    folio: s.folio, fecha: s.createdAt,
+    estadoAut: s.estadoAut || 'autorizada',
+    entregado: !!(s.entregaMercancia && s.entregaMercancia.fecha),
+    fechaEntrega: (s.entregaMercancia && s.entregaMercancia.fecha) || null,
+    sucursal: suc ? suc.nombre : '',
+    cliente: { nombre: c.nombre || '', tel: c.tel || '', domicilio: [c.calle, c.col, c.ciudad].filter(Boolean).join(', ') },
+    vendedor: s.levantadaPor || s.prom || '',
+    cobrador: s.prom || '',
+    articulos: (s.items && s.items.length) ? s.items.map(i => ({ nombre: i.nombre, cantidad: i.cantidad, precio: i.precio, subtotal: i.precio * i.cantidad })) : (s.articulos || []).map(a => ({ nombre: a, cantidad: 1 })),
+    totalContado: s.totalContado || 0,
+    enganche: s.enganche || 0,
+    engancheForma: s.engancheForma || '',
+    financiado: s.monto || 0,
+    plazo: nCuotas, tipo: s.tipo, cuota, totalCredito: total,
+    interes: Math.max(0, total - (s.monto || 0)),
+    saldo, cuotasPagadas,
+    tabla
+  });
+});
+
 /* ==================== CATÁLOGO DE ARTÍCULOS (MueblePro) ====================
    Los artículos viven en el bloque JSON del tenant (db.catalogo), igual que
    clientes y ventas. Las FOTOS van a mp_fotos vía fotoGuardar, por la misma
