@@ -3077,13 +3077,24 @@ app.get('/api/reports/entregas', auth, rol('admin', 'supervisor', 'sucursal'), (
   const r = _rangoReporte(req.query);
   const sucMap = {}; db.sucursales.forEach(s => sucMap[s.id] = s.nombre);
   const rolLbl = { admin: 'Admin', supervisor: 'Supervisor', sucursal: 'Sucursal', jc: 'JC' };
-  let ent = db.sales.filter(s => s.entrega && (scope == null || s.sucursalId === scope));
-  ent = ent.filter(s => { const t = _diaMxMs(s.entrega.fecha); return (!r.desde || t >= r.desde) && (!r.hasta || t <= r.hasta); });
-  const lista = ent.map(s => {
+  rolLbl.vendedor = 'Vendedor';
+  const enRango = f => { const t = _diaMxMs(f); return (!r.desde || t >= r.desde) && (!r.hasta || t <= r.hasta); };
+  const lista = [];
+  db.sales.forEach(s => {
+    if (scope != null && s.sucursalId !== scope) return;
     const c = db.clients.find(x => x.id === s.clientId) || {};
-    const por = s.entrega.por || { rol: 'jc', nombre: s.entrega.jcNombre || '—' };
-    return { folio: s.folio, cliente: c.nombre || '—', sucursal: sucMap[s.sucursalId] || '—', ruta: s.prom || '—', entregadoPor: por.nombre, rolEntrega: rolLbl[por.rol] || por.rol, fecha: s.entrega.fecha, monto: entregaMontoDe(s), tieneEvidencia: !!(s.entrega.fotoCasa || s.entrega.firma), saleId: s.id };
-  }).sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+    // Entrega de EFECTIVO (créditos de dinero, CobraPro)
+    if (s.entrega && enRango(s.entrega.fecha)) {
+      const por = s.entrega.por || { rol: 'jc', nombre: s.entrega.jcNombre || '—' };
+      lista.push({ tipo: 'efectivo', folio: s.folio, cliente: c.nombre || '—', sucursal: sucMap[s.sucursalId] || '—', ruta: s.prom || '—', entregadoPor: por.nombre, rolEntrega: rolLbl[por.rol] || por.rol, fecha: s.entrega.fecha, monto: entregaMontoDe(s), tieneEvidencia: !!(s.entrega.fotoCasa || s.entrega.firma), saleId: s.id });
+    }
+    // Entrega de MERCANCÍA (muebles) — mismo reporte, marcada como tal
+    if (s.entregaMercancia && s.entregaMercancia.fecha && enRango(s.entregaMercancia.fecha)) {
+      const por = s.entregaMercancia.por || { rol: '—', nombre: '—' };
+      lista.push({ tipo: 'mueble', folio: s.folio, cliente: c.nombre || '—', sucursal: sucMap[s.sucursalId] || '—', ruta: s.prom || '—', entregadoPor: por.nombre, rolEntrega: rolLbl[por.rol] || por.rol, fecha: s.entregaMercancia.fecha, monto: 0, esMueble: true, tieneEvidencia: !!(s.entregaMercancia.fotoMueble || s.entregaMercancia.firma), saleId: s.id });
+    }
+  });
+  lista.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
   const porPersona = {};
   lista.forEach(e => { const k = e.entregadoPor + ' (' + e.rolEntrega + ')'; porPersona[k] = porPersona[k] || { quien: e.entregadoPor, rol: e.rolEntrega, n: 0, monto: 0 }; porPersona[k].n++; porPersona[k].monto += e.monto; });
   res.json({ total: lista.length, montoTotal: lista.reduce((a, e) => a + e.monto, 0), porPersona: Object.values(porPersona).sort((a, b) => b.monto - a.monto), entregas: lista.slice(0, 300) });
