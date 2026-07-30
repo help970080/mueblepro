@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inventario · MueblePro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#eef1f7;--surf-1:#fff;--surf-2:#f1f4f9;--ink:#1b2330;--dim:#5b6675;--faint:#97a2b2;--line:#dde3ec;--acc:#d99a0f;--acc-d:#a87a10;--grn:#178a55;--red:#d6432d;--blu:#2563eb;--amber:#c47a1a}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:'Sora',system-ui,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1080px;margin:0 auto;padding:18px 16px 70px}
+  header.top{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+  .logo{width:40px;height:40px;border-radius:11px;background:linear-gradient(135deg,var(--acc),var(--acc-d));display:grid;place-items:center;color:#fff;font-weight:700;font-size:1.15rem}
+  .htxt h1{font-size:1.12rem;font-weight:700}
+  .htxt p{font-size:.78rem;color:var(--dim)}
+  .top a{margin-left:auto;font-size:.82rem;color:var(--dim);text-decoration:none;font-weight:600}
+  .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+  @media(max-width:600px){.kpis{grid-template-columns:1fr}}
+  .kpi{background:var(--surf-1);border:1px solid var(--line);border-radius:13px;padding:15px}
+  .kpi .l{font-size:.72rem;color:var(--faint);text-transform:uppercase;letter-spacing:.04em}
+  .kpi .v{font-size:1.5rem;font-weight:700;margin-top:3px}
+  .kpi.alert .v{color:var(--red)}
+  .toolbar{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+  .search{flex:1;min-width:180px;display:flex;align-items:center;gap:8px;background:var(--surf-1);border:1px solid var(--line);border-radius:11px;padding:0 12px}
+  .search input{flex:1;border:none;outline:none;background:transparent;font-family:inherit;font-size:.9rem;padding:11px 0}
+  .search svg{width:17px;height:17px;color:var(--faint)}
+  .btn{font-family:inherit;font-size:.86rem;font-weight:600;border:1px solid var(--line);background:var(--surf-1);color:var(--ink);padding:10px 15px;border-radius:10px;cursor:pointer;white-space:nowrap}
+  .btn.pri{background:linear-gradient(135deg,var(--acc),var(--acc-d));color:#fff;border:none}
+  .btn:active{transform:translateY(1px)}
+  .filter{font-family:inherit;font-size:.86rem;background:var(--surf-1);border:1px solid var(--line);padding:10px 12px;border-radius:10px;cursor:pointer}
+  table{width:100%;border-collapse:collapse;background:var(--surf-1);border:1px solid var(--line);border-radius:13px;overflow:hidden}
+  th{text-align:left;font-size:.68rem;color:var(--faint);text-transform:uppercase;letter-spacing:.04em;padding:11px 12px;border-bottom:1px solid var(--line);background:var(--surf-2)}
+  th.n,td.n{text-align:right}
+  td{padding:11px 12px;border-bottom:1px solid var(--line);font-size:.88rem;vertical-align:middle}
+  tr:last-child td{border-bottom:none}
+  tr.agot{background:#fdf1ef}
+  tr.bajo{background:#fdf8ef}
+  .art-n{font-weight:600}
+  .art-sku{font-size:.72rem;color:var(--faint)}
+  .sucbox{display:inline-block;min-width:26px;text-align:center;font-size:.82rem;font-weight:600;padding:2px 6px;border-radius:6px;background:var(--surf-2);margin:1px}
+  .sucbox.z{color:var(--faint);font-weight:400}
+  .tag{font-size:.66rem;font-weight:700;padding:2px 7px;border-radius:5px}
+  .tag.agot{background:#fde0db;color:var(--red)}
+  .tag.bajo{background:#fdeccf;color:var(--amber)}
+  .acc-btns{display:flex;gap:5px;justify-content:flex-end}
+  .mini{padding:5px 9px;font-size:.76rem;border-radius:8px;border:1px solid var(--line);background:var(--surf-1);cursor:pointer;font-family:inherit}
+  .mini.e{color:var(--grn);border-color:#bfe3cd}
+  .mini.k{color:var(--blu)}
+  .empty{text-align:center;padding:60px;color:var(--dim)}
+  .loading{text-align:center;padding:60px;color:var(--faint)}
+  .spin{width:26px;height:26px;border:3px solid var(--line);border-top-color:var(--acc);border-radius:50%;animation:sp .7s linear infinite;margin:0 auto 10px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  /* modal */
+  .ov{position:fixed;inset:0;background:rgba(15,20,30,.5);display:none;align-items:flex-start;justify-content:center;padding:24px 14px;z-index:50;overflow-y:auto}
+  .ov.on{display:flex}
+  .modal{background:var(--surf-1);border-radius:16px;width:100%;max-width:460px;box-shadow:0 24px 60px rgba(15,20,30,.3)}
+  .modal h2{padding:16px 20px;font-size:1.02rem;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+  .modal h2 .x{cursor:pointer;color:var(--faint)}
+  .mbody{padding:18px 20px;display:flex;flex-direction:column;gap:13px}
+  .field label{display:block;font-size:.78rem;font-weight:600;color:var(--dim);margin-bottom:5px}
+  .field input,.field select{width:100%;font-family:inherit;font-size:.9rem;border:1px solid var(--line);background:var(--surf-2);padding:10px 12px;border-radius:10px;outline:none}
+  .field input:focus,.field select:focus{border-color:var(--acc);background:var(--surf-1)}
+  .mfoot{padding:14px 20px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end}
+  .kx-row{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line);font-size:.84rem}
+  .kx-row:last-child{border:none}
+  .kx-t{font-weight:600}
+  .kx-d{font-size:.72rem;color:var(--faint)}
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:12px 18px;border-radius:11px;font-size:.86rem;opacity:0;transition:.22s;z-index:100;max-width:88%;text-align:center}
+  .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast.err{background:var(--red)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="logo">M</div>
+    <div class="htxt"><h1>Inventario</h1><p id="sub">Cargando…</p></div>
+    <a href="mueblepro.html">← Panel</a>
+  </header>
+
+  <div class="kpis">
+    <div class="kpi"><div class="l">Artículos</div><div class="v" id="k-arts">—</div></div>
+    <div class="kpi"><div class="l">Valor del inventario (costo)</div><div class="v" id="k-valor">—</div></div>
+    <div class="kpi alert"><div class="l">Alertas de stock</div><div class="v" id="k-alert">—</div></div>
+  </div>
+
+  <div class="toolbar">
+    <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="q" placeholder="Buscar artículo o SKU…" oninput="render()"></div>
+    <select class="filter" id="fest" onchange="render()"><option value="">Todos</option><option value="alerta">Solo alertas</option><option value="agot">Agotados</option></select>
+    <button class="btn pri" onclick="abrirEntrada()">+ Entrada de mercancía</button>
+  </div>
+
+  <div id="cont"><div class="loading"><div class="spin"></div>Cargando inventario…</div></div>
+</div>
+
+<div class="ov" id="ov"><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const TOKEN=(()=>{try{return localStorage.getItem('mueblepro_token')}catch(e){return null}})();
+const ME=(()=>{try{return JSON.parse(localStorage.getItem('mueblepro_user')||'null')}catch(e){return null}})();
+if(!TOKEN){ location.replace('index.html'); }
+let SUCS=[], DATA=[];
+
+async function api(method,path,body){
+  const r=await fetch(path,{method,headers:{'Content-Type':'application/json',Authorization:'Bearer '+TOKEN},body:body?JSON.stringify(body):undefined});
+  if(r.status===401){ location.replace('index.html'); throw new Error('Sesión expirada'); }
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(d.error||('Error '+r.status));
+  return d;
+}
+const money=n=>'$'+(Number(n)||0).toLocaleString('es-MX',{maximumFractionDigits:0});
+function esc(s){return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function toast(m,e){const t=document.getElementById('toast');t.textContent=m;t.className='toast on'+(e?' err':'');setTimeout(()=>t.className='toast'+(e?' err':''),2600);}
+
+async function cargar(){
+  try{
+    const d=await api('GET','/api/inventario');
+    SUCS=d.sucursales||[]; DATA=d.articulos||[];
+    document.getElementById('k-arts').textContent=DATA.length;
+    document.getElementById('k-valor').textContent=money(d.valorInventario);
+    document.getElementById('k-alert').textContent=d.alertas;
+    document.getElementById('sub').textContent=`${SUCS.length} sucursal${SUCS.length!==1?'es':''} · umbral de alerta ≤ ${d.umbral}`;
+    render();
+  }catch(e){ document.getElementById('cont').innerHTML=`<div class="empty">${e.message}</div>`; }
+}
+
+function render(){
+  const q=(document.getElementById('q').value||'').toLowerCase().trim();
+  const fe=document.getElementById('fest').value;
+  let list=DATA.slice();
+  if(fe==='alerta') list=list.filter(a=>a.agotado||a.bajo);
+  else if(fe==='agot') list=list.filter(a=>a.agotado);
+  if(q) list=list.filter(a=>(a.nombre||'').toLowerCase().includes(q)||(a.sku||'').toLowerCase().includes(q));
+  const cont=document.getElementById('cont');
+  if(!list.length){ cont.innerHTML='<div class="empty">Sin resultados.</div>'; return; }
+  const sucCols=SUCS.map(s=>`<th class="n">${esc(s.nombre)}</th>`).join('');
+  cont.innerHTML=`<table><thead><tr><th>Artículo</th><th class="n">Costo</th>${sucCols}<th class="n">Total</th><th class="n">Valor</th><th></th></tr></thead><tbody>${
+    list.map(a=>{
+      const cls=a.agotado?'agot':(a.bajo?'bajo':'');
+      const tag=a.agotado?'<span class="tag agot">AGOTADO</span>':(a.bajo?'<span class="tag bajo">BAJO</span>':'');
+      const cols=SUCS.map(s=>{const q=a.porSuc[s.id]||0;return `<td class="n"><span class="sucbox${q<=0?' z':''}">${q}</span></td>`;}).join('');
+      return `<tr class="${cls}">
+        <td><div class="art-n">${esc(a.nombre)} ${tag}</div><div class="art-sku">${esc(a.sku)||'sin SKU'} · ${esc(a.categoria)}</div></td>
+        <td class="n">${money(a.costo)}</td>
+        ${cols}
+        <td class="n"><b>${a.total}</b></td>
+        <td class="n">${money(a.valorCosto)}</td>
+        <td><div class="acc-btns"><button class="mini e" onclick="abrirEntrada(${a.id})">+ Entrada</button><button class="mini" onclick="abrirAjuste(${a.id})">Ajustar</button><button class="mini k" onclick="verKardex(${a.id})">Kardex</button></div></td>
+      </tr>`;
+    }).join('')
+  }</tbody></table>`;
+}
+
+function sucOptions(sel){ return SUCS.map(s=>`<option value="${s.id}"${s.id===sel?' selected':''}>${esc(s.nombre)}</option>`).join(''); }
+
+function abrirEntrada(artId){
+  const arts=DATA.map(a=>`<option value="${a.id}"${a.id===artId?' selected':''}>${esc(a.nombre)}${a.sku?' ('+esc(a.sku)+')':''}</option>`).join('');
+  document.getElementById('modal').innerHTML=`
+    <h2>Entrada de mercancía<span class="x" onclick="cerrar()">✕</span></h2>
+    <div class="mbody">
+      <div class="field"><label>Artículo</label><select id="e-art">${arts}</select></div>
+      <div class="field"><label>Sucursal que recibe</label><select id="e-suc">${sucOptions(SUCS[0]&&SUCS[0].id)}</select></div>
+      <div class="field"><label>Cantidad que entra</label><input id="e-cant" type="number" inputmode="numeric" placeholder="Ej. 10"></div>
+      <div class="field"><label>Costo unitario (opcional, actualiza el costo)</label><input id="e-costo" type="number" inputmode="decimal" placeholder="Ej. 3000"></div>
+      <div class="field"><label>Nota (proveedor, factura…)</label><input id="e-nota" placeholder="Opcional"></div>
+    </div>
+    <div class="mfoot"><button class="btn" onclick="cerrar()">Cancelar</button><button class="btn pri" id="e-btn" onclick="guardarEntrada()">Registrar entrada</button></div>`;
+  document.getElementById('ov').classList.add('on');
+}
+async function guardarEntrada(){
+  const body={articuloId:+document.getElementById('e-art').value,sucursalId:+document.getElementById('e-suc').value,cantidad:+document.getElementById('e-cant').value||0,costoUnitario:+document.getElementById('e-costo').value||0,nota:document.getElementById('e-nota').value.trim()};
+  if(!(body.cantidad>0)) return toast('La cantidad debe ser mayor a cero',true);
+  const btn=document.getElementById('e-btn'); btn.disabled=true;
+  try{ const d=await api('POST','/api/inventario/entrada',body); toast(`✓ +${body.cantidad} · ${d.articulo} (quedan ${d.existencias})`); cerrar(); cargar(); }
+  catch(e){ toast(e.message,true); btn.disabled=false; }
+}
+
+function abrirAjuste(artId){
+  const a=DATA.find(x=>x.id===artId);
+  document.getElementById('modal').innerHTML=`
+    <h2>Ajustar existencias<span class="x" onclick="cerrar()">✕</span></h2>
+    <div class="mbody">
+      <div style="font-size:.9rem;font-weight:600">${esc(a.nombre)}</div>
+      <div class="field"><label>Sucursal</label><select id="aj-suc" onchange="ajRefleja(${artId})">${sucOptions(SUCS[0]&&SUCS[0].id)}</select></div>
+      <div class="field"><label>Existencias reales (conteo físico)</label><input id="aj-cant" type="number" inputmode="numeric" value="${a.porSuc[SUCS[0]&&SUCS[0].id]||0}"></div>
+      <div class="field"><label>Motivo</label><input id="aj-mot" placeholder="Merma, corrección de conteo, daño…"></div>
+    </div>
+    <div class="mfoot"><button class="btn" onclick="cerrar()">Cancelar</button><button class="btn pri" id="aj-btn" onclick="guardarAjuste(${artId})">Guardar ajuste</button></div>`;
+  document.getElementById('ov').classList.add('on');
+}
+function ajRefleja(artId){ const a=DATA.find(x=>x.id===artId); const suc=+document.getElementById('aj-suc').value; document.getElementById('aj-cant').value=a.porSuc[suc]||0; }
+async function guardarAjuste(artId){
+  const body={articuloId:artId,sucursalId:+document.getElementById('aj-suc').value,nuevaCantidad:+document.getElementById('aj-cant').value||0,motivo:document.getElementById('aj-mot').value.trim()};
+  if(!body.motivo) return toast('Indica el motivo del ajuste',true);
+  const btn=document.getElementById('aj-btn'); btn.disabled=true;
+  try{ const d=await api('POST','/api/inventario/ajuste',body); toast(`✓ ${d.articulo} → ${d.existencias}`); cerrar(); cargar(); }
+  catch(e){ toast(e.message,true); btn.disabled=false; }
+}
+
+async function verKardex(artId){
+  try{
+    const d=await api('GET','/api/inventario/'+artId+'/kardex');
+    const lbl={entrada:'Entrada',venta:'Venta',devolucion:'Devolución',ajuste:'Ajuste',traspaso_entrada:'Traspaso ↓',traspaso_salida:'Traspaso ↑',venta_sin_stock:'Venta sin stock'};
+    const sucName=id=>{const s=SUCS.find(x=>x.id===+id);return s?s.nombre:('Suc '+id);};
+    const rows=(d.kardex||[]).map(m=>{
+      const f=m.ts?new Date(m.ts).toLocaleString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'';
+      const signo=m.delta>0?'+':'';
+      const col=m.delta>0?'var(--grn)':'var(--red)';
+      return `<div class="kx-row"><div><div class="kx-t">${lbl[m.tipo]||m.tipo}</div><div class="kx-d">${f} · ${sucName(m.sucursalId)} ${m.por?'· '+esc(m.por):''} ${m.motivo?'· '+esc(m.motivo):''} ${m.folio?'· '+esc(m.folio):''}</div></div><div style="text-align:right;font-weight:700;color:${col}">${signo}${m.delta}<div class="kx-d">→ ${m.despues}</div></div></div>`;
+    }).join('');
+    document.getElementById('modal').innerHTML=`
+      <h2>Kardex · ${esc(d.articulo)}<span class="x" onclick="cerrar()">✕</span></h2>
+      <div class="mbody" style="max-height:60vh;overflow-y:auto">${rows||'<div style="color:var(--faint);text-align:center;padding:20px">Sin movimientos registrados aún.</div>'}</div>
+      <div class="mfoot"><button class="btn" onclick="cerrar()">Cerrar</button></div>`;
+    document.getElementById('ov').classList.add('on');
+  }catch(e){ toast(e.message,true); }
+}
+function cerrar(){ document.getElementById('ov').classList.remove('on'); }
+document.getElementById('ov').addEventListener('click',e=>{ if(e.target.id==='ov') cerrar(); });
+cargar();
+</script>
+</body>
+</html>
