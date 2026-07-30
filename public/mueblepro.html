@@ -1367,6 +1367,21 @@ async function verEvidencia(saleId){
     document.body.appendChild(ov);
   }catch(e){ alert(e.message); }
 }
+async function verEvidenciaMueble(saleId){
+  try{
+    const d=await apiU('GET','/api/sales/'+saleId+'/entrega-mueble');
+    const ov=document.createElement('div'); ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px'; ov.onclick=ev=>{if(ev.target===ov)ov.remove();};
+    const ubic=(d.lat!=null&&d.lng!=null)?`<a href="https://maps.google.com/?q=${d.lat},${d.lng}" target="_blank" style="color:var(--blu)">📍 Ver ubicación de entrega</a>`:'<span style="color:var(--faint)">Sin ubicación</span>';
+    ov.innerHTML=`<div style="background:var(--surf-1);border:1px solid var(--line);border-radius:14px;padding:20px;width:min(560px,94vw);max-height:90vh;overflow:auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><h3 style="margin:0">🚚 Entrega del mueble</h3><button class="btn" onclick="this.closest('div[style*=fixed]').remove()">✕</button></div>
+      <div style="font-size:.8rem;color:var(--dim);margin-bottom:14px">Entregó ${d.por&&d.por.nombre||'—'} · ${d.fecha?new Date(d.fecha).toLocaleString('es-MX',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):''}</div>
+      <div style="font-size:.72rem;color:var(--dim);margin-bottom:5px">🛋️ Mueble entregado en casa</div>
+      ${d.fotoMueble?`<img src="${d.fotoMueble}" style="width:100%;border-radius:10px;border:1px solid var(--line)">`:'<div style="color:var(--faint)">Sin foto</div>'}
+      ${d.firma?`<div style="margin-top:14px"><div style="font-size:.72rem;color:var(--dim);margin-bottom:5px">✍️ Firma de recibido</div><img src="${d.firma}" style="width:100%;max-height:170px;object-fit:contain;background:#fff;border-radius:10px;border:1px solid var(--line)"></div>`:''}
+      <div style="margin-top:14px">${ubic}</div></div>`;
+    document.body.appendChild(ov);
+  }catch(e){ alert(e.message); }
+}
 async function borrarCliente(clientId, nombre){
   if(!confirm(`¿Eliminar al cliente "${nombre}"?\n\nQuedará fuera de la cartera y de la ruta del cobrador, pero su historial de pagos se conserva para auditoría. Esta acción se puede deshacer reactivándolo en la base.`)) return;
   try{ await apiU('DELETE','/api/clients/'+clientId); await cargarCartera(); }
@@ -1582,7 +1597,10 @@ async function rpVerEntregas(){
   const resumen = d.porPersona.length? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">${d.porPersona.map(p=>`<div style="background:var(--surf-1);border:1px solid var(--line);border-radius:9px;padding:9px 12px"><div style="font-weight:600;font-size:.85rem">${p.quien} <span style="color:var(--faint);font-weight:400">· ${p.rol}</span></div><div style="font-size:.78rem;color:var(--dim)">${p.n} entregas · <b style="color:var(--grn)">${fmt(p.monto)}</b></div></div>`).join('')}</div>` : '';
   const filas = d.entregas.map(e=>{
     const f=new Date(e.fecha).toLocaleDateString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
-    return `<tr><td style="white-space:nowrap;font-size:.78rem;color:var(--dim)">${f}</td><td>${e.cliente}<div style="font-size:.7rem;color:var(--faint)">${e.folio} · ${e.sucursal} · ${e.ruta}</div></td><td>${e.entregadoPor}<div style="font-size:.7rem;color:var(--faint)">${e.rolEntrega}</div></td><td class="n">${fmt(e.monto)}</td><td class="n">${e.tieneEvidencia?`<button class="btn" style="padding:3px 8px;font-size:.72rem" onclick="verEvidencia(${e.saleId})">📷</button>`:'—'}</td></tr>`;
+    const tag = e.esMueble ? '<span style="background:#e7dcc4;color:#8a6a1a;font-size:.62rem;font-weight:700;padding:2px 6px;border-radius:5px;margin-left:5px">MUEBLE</span>' : '';
+    const montoTxt = e.esMueble ? '<span style="color:var(--faint)">—</span>' : fmt(e.monto);
+    const evClick = e.esMueble ? `verEvidenciaMueble(${e.saleId})` : `verEvidencia(${e.saleId})`;
+    return `<tr><td style="white-space:nowrap;font-size:.78rem;color:var(--dim)">${f}</td><td>${e.cliente}${tag}<div style="font-size:.7rem;color:var(--faint)">${e.folio} · ${e.sucursal} · ${e.ruta}</div></td><td>${e.entregadoPor}<div style="font-size:.7rem;color:var(--faint)">${e.rolEntrega}</div></td><td class="n">${montoTxt}</td><td class="n">${e.tieneEvidencia?`<button class="btn" style="padding:3px 8px;font-size:.72rem" onclick="${evClick}">📷</button>`:'—'}</td></tr>`;
   }).join('');
   rpAbrir('📦 Reporte de entregas',`<div style="font-size:.82rem;color:var(--dim);margin-bottom:10px">${d.total} entregas · monto entregado <b style="color:var(--grn)">${fmt(d.montoTotal)}</b><span style="color:var(--gold)">${etq}</span></div>${resumen}
     <table class="rp-table"><thead><tr><th>Fecha</th><th>Cliente</th><th>Entregó</th><th class="n">Monto</th><th class="n">Evid.</th></tr></thead><tbody>${filas||'<tr><td colspan="5" style="color:var(--faint);padding:12px">Aún no hay entregas registradas.</td></tr>'}</tbody></table>`);
