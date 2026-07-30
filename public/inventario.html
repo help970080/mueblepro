@@ -17,8 +17,8 @@
   .htxt h1{font-size:1.12rem;font-weight:700}
   .htxt p{font-size:.78rem;color:var(--dim)}
   .top a{margin-left:auto;font-size:.82rem;color:var(--dim);text-decoration:none;font-weight:600}
-  .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
-  @media(max-width:600px){.kpis{grid-template-columns:1fr}}
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+  @media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}}@media(max-width:500px){.kpis{grid-template-columns:1fr}}
   .kpi{background:var(--surf-1);border:1px solid var(--line);border-radius:13px;padding:15px}
   .kpi .l{font-size:.72rem;color:var(--faint);text-transform:uppercase;letter-spacing:.04em}
   .kpi .v{font-size:1.5rem;font-weight:700;margin-top:3px}
@@ -84,12 +84,14 @@
   <div class="kpis">
     <div class="kpi"><div class="l">Artículos</div><div class="v" id="k-arts">—</div></div>
     <div class="kpi"><div class="l">Valor del inventario (costo)</div><div class="v" id="k-valor">—</div></div>
+    <div class="kpi"><div class="l">Utilidad potencial (si vendes todo)</div><div class="v" id="k-util" style="color:var(--grn)">—</div></div>
     <div class="kpi alert"><div class="l">Alertas de stock</div><div class="v" id="k-alert">—</div></div>
   </div>
 
   <div class="toolbar">
     <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="q" placeholder="Buscar artículo o SKU…" oninput="render()"></div>
     <select class="filter" id="fest" onchange="render()"><option value="">Todos</option><option value="alerta">Solo alertas</option><option value="agot">Agotados</option></select>
+    <button class="btn" onclick="abrirPrecios()">💲 Actualizar precios</button>
     <button class="btn pri" onclick="abrirEntrada()">+ Entrada de mercancía</button>
   </div>
 
@@ -122,6 +124,9 @@ async function cargar(){
     SUCS=d.sucursales||[]; DATA=d.articulos||[];
     document.getElementById('k-arts').textContent=DATA.length;
     document.getElementById('k-valor').textContent=money(d.valorInventario);
+    // utilidad potencial: si vendieras todo el stock de contado
+    const utilPot=DATA.reduce((s,a)=>s+((a.precioContado||0)-(a.costo||0))*a.total,0);
+    const kU=document.getElementById('k-util'); if(kU) kU.textContent=money(utilPot);
     document.getElementById('k-alert').textContent=d.alertas;
     document.getElementById('sub').textContent=`${SUCS.length} sucursal${SUCS.length!==1?'es':''} · umbral de alerta ≤ ${d.umbral}`;
     render();
@@ -138,7 +143,7 @@ function render(){
   const cont=document.getElementById('cont');
   if(!list.length){ cont.innerHTML='<div class="empty">Sin resultados.</div>'; return; }
   const sucCols=SUCS.map(s=>`<th class="n">${esc(s.nombre)}</th>`).join('');
-  cont.innerHTML=`<table><thead><tr><th>Artículo</th><th class="n">Costo</th>${sucCols}<th class="n">Total</th><th class="n">Valor</th><th></th></tr></thead><tbody>${
+  cont.innerHTML=`<table><thead><tr><th>Artículo</th><th class="n">Costo</th><th class="n">Venta</th><th class="n">Utilidad</th>${sucCols}<th class="n">Total</th><th class="n">Valor stock</th><th></th></tr></thead><tbody>${
     list.map(a=>{
       const cls=a.agotado?'agot':(a.bajo?'bajo':'');
       const tag=a.agotado?'<span class="tag agot">AGOTADO</span>':(a.bajo?'<span class="tag bajo">BAJO</span>':'');
@@ -146,6 +151,8 @@ function render(){
       return `<tr class="${cls}">
         <td><div class="art-n">${esc(a.nombre)} ${tag}</div><div class="art-sku">${esc(a.sku)||'sin SKU'} · ${esc(a.categoria)}</div></td>
         <td class="n">${money(a.costo)}</td>
+        <td class="n">${money(a.precioContado)}</td>
+        <td class="n">${utilHTML(a)}</td>
         ${cols}
         <td class="n"><b>${a.total}</b></td>
         <td class="n">${money(a.valorCosto)}</td>
@@ -155,6 +162,13 @@ function render(){
   }</tbody></table>`;
 }
 
+function utilHTML(a){
+  const gan=(a.precioContado||0)-(a.costo||0);
+  const margen=a.precioContado>0?Math.round(gan/a.precioContado*100):0;
+  if(!a.costo) return '<span style="color:var(--faint)">—</span>';
+  const col=gan>0?'var(--grn)':'var(--red)';
+  return `<span style="color:${col};font-weight:600">${money(gan)}</span><div style="font-size:.68rem;color:var(--faint)">${margen}%</div>`;
+}
 function sucOptions(sel){ return SUCS.map(s=>`<option value="${s.id}"${s.id===sel?' selected':''}>${esc(s.nombre)}</option>`).join(''); }
 
 function abrirEntrada(artId){
@@ -218,6 +232,70 @@ async function verKardex(artId){
       <div class="mfoot"><button class="btn" onclick="cerrar()">Cerrar</button></div>`;
     document.getElementById('ov').classList.add('on');
   }catch(e){ toast(e.message,true); }
+}
+let _preview=null;
+function abrirPrecios(){
+  const cats=[...new Set(DATA.map(a=>a.categoria))].sort();
+  const catOpts='<option value="__todas__">Todas las categorías</option>'+cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  document.getElementById('modal').innerHTML=`
+    <h2>Actualizar precios<span class="x" onclick="cerrar()">✕</span></h2>
+    <div class="mbody">
+      <div class="field"><label>Modo</label>
+        <select id="pm-modo" onchange="pmLabel()">
+          <option value="margen">Fijar precio = costo + margen %</option>
+          <option value="incremento">Subir el precio actual un %</option>
+        </select>
+      </div>
+      <div class="field"><label id="pm-lbl">Margen sobre el costo (%)</label>
+        <input id="pm-val" type="number" inputmode="decimal" placeholder="Ej. 40" oninput="_preview=null">
+      </div>
+      <div class="field"><label>Aplicar a</label><select id="pm-cat">${catOpts}</select></div>
+      <div class="field"><label>Redondeo</label>
+        <select id="pm-red">
+          <option value="entero">Al entero</option>
+          <option value="10">A múltiplos de 10</option>
+          <option value="50">A múltiplos de 50</option>
+          <option value="99">Terminación en 99</option>
+        </select>
+      </div>
+      <div id="pm-prev" style="font-size:.82rem"></div>
+    </div>
+    <div class="mfoot">
+      <button class="btn" onclick="cerrar()">Cancelar</button>
+      <button class="btn" id="pm-prevbtn" onclick="pmPreview()">Vista previa</button>
+      <button class="btn pri" id="pm-apply" onclick="pmAplicar()" style="display:none">Aplicar</button>
+    </div>`;
+  document.getElementById('ov').classList.add('on');
+}
+function pmLabel(){ document.getElementById('pm-lbl').textContent = document.getElementById('pm-modo').value==='margen' ? 'Margen sobre el costo (%)' : 'Porcentaje de aumento (%)'; _preview=null; }
+function pmBody(preview){
+  return { modo:document.getElementById('pm-modo').value, valor:+document.getElementById('pm-val').value||0,
+    categoria:document.getElementById('pm-cat').value, redondeo:document.getElementById('pm-red').value, soloPreview:preview };
+}
+async function pmPreview(){
+  const b=pmBody(true);
+  if(!b.valor && b.valor!==0) return toast('Captura el porcentaje',true);
+  try{
+    const d=await api('POST','/api/inventario/precios-masivo',b);
+    _preview=d;
+    const filas=d.cambios.map(c=>{
+      if(c.omitido) return `<div style="display:flex;justify-content:space-between;color:var(--faint);padding:3px 0"><span>${esc(c.nombre)}</span><span>— ${c.omitido}</span></div>`;
+      const col=c.dif>0?'var(--grn)':(c.dif<0?'var(--red)':'var(--dim)');
+      return `<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--line)"><span>${esc(c.nombre)}</span><span>${money(c.antes)} → <b style="color:${col}">${money(c.nuevo)}</b></span></div>`;
+    }).join('');
+    document.getElementById('pm-prev').innerHTML=`<div style="border-top:1px dashed var(--line);margin-top:8px;padding-top:8px;max-height:200px;overflow-y:auto">${filas}</div><div style="margin-top:8px;color:var(--dim)"><b>${d.total}</b> se actualizarán${d.omitidos?` · ${d.omitidos} omitidos (sin costo)`:''}</div>`;
+    document.getElementById('pm-apply').style.display = d.total>0 ? 'inline-block' : 'none';
+  }catch(e){ toast(e.message,true); }
+}
+async function pmAplicar(){
+  if(!_preview){ return toast('Primero da vista previa',true); }
+  if(!confirm(`Se actualizarán ${_preview.total} precios. ¿Continuar?`)) return;
+  const btn=document.getElementById('pm-apply'); btn.disabled=true;
+  try{
+    const d=await api('POST','/api/inventario/precios-masivo',pmBody(false));
+    toast(`✓ ${d.afectados} precios actualizados`);
+    cerrar(); cargar();
+  }catch(e){ toast(e.message,true); btn.disabled=false; }
 }
 function cerrar(){ document.getElementById('ov').classList.remove('on'); }
 document.getElementById('ov').addEventListener('click',e=>{ if(e.target.id==='ov') cerrar(); });
