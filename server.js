@@ -1749,10 +1749,17 @@ function _ciclosEsperados(anchorTs){
 function calcAtraso(sale){
   const cuota = sale.cuota || 0;
   // ancla del calendario: si hubo reestructura, el reloj se reinicia desde esa fecha
-  const anchor = sale.reestructuraAt ? new Date(sale.reestructuraAt) : (sale.createdAt ? new Date(sale.createdAt) : new Date());
+  // MUEBLES: la primera semana cuenta desde la ENTREGA, no desde que se levantó la venta.
+  const _esMueble = Array.isArray(sale.items) && sale.items.length;
+  const _entregaMercancia = sale.entregaMercancia && sale.entregaMercancia.fecha;
+  const anchor = sale.reestructuraAt ? new Date(sale.reestructuraAt)
+    : (_esMueble && _entregaMercancia) ? new Date(sale.entregaMercancia.fecha)
+    : (sale.createdAt ? new Date(sale.createdAt) : new Date());
   const dias = Math.max(0, Math.floor((Date.now() - anchor.getTime())/86400000));
   const _esSemanal = t => t === 'semanal' || /^s\d+$/i.test(String(t || ''));
   let cuotasDebidas = 0;
+  // Mueble aún no entregado: el crédito existe pero la cobranza no arranca.
+  if (_esMueble && !_entregaMercancia) return { cuotasDebidas: 0, cuotasPagadas: 0, cuotasAtraso: 0, montoAtraso: 0, diasAtraso: 0, sinEntregar: true };
   if (sale.tipo === 'diario') cuotasDebidas = Math.min(sale.plazo || 0, dias);
   else if (_esSemanal(sale.tipo)) cuotasDebidas = Math.min(sale.plazo || 0, _ciclosEsperados(anchor.getTime()));
   else if (sale.tipo === 'unico') cuotasDebidas = dias >= (sale.plazo || 0) ? 1 : 0;
@@ -4204,6 +4211,72 @@ app.post('/api/transferencias/lote', auth, rol('admin', 'supervisor'), (req, res
 /* MÓDULO DE VOZ / IVR: ELIMINADO en MueblePro.
    Llamaba al bridge Zadarma del VPS (ivr.legaxia.uk) con el token de CobraPro.
    Fuera de aquí, este sistema no habla con ninguna infraestructura de CobraPro. */
+
+/* ==================== ENTREGA DE MERCANCÍA (MueblePro) ====================
+   El repartidor lleva el mueble a casa y marca entregado con foto + firma.
+   OJO: es distinto de /api/sales/:id/entregar (esa es entrega de EFECTIVO de los
+   créditos de dinero, y exige que quien entrega traiga el efectivo). Aquí no hay
+   efectivo: se entrega la mercancía. Y ES el momento en que arranca la cobranza:
+   la primera semana cuenta desde esta fecha (ver ancla en calcAtraso).
+   ======================================================================= */
+
+/* Bandeja: ventas autorizadas que faltan por entregar */
+app.get('/api/entregas-mueble', auth, rol('admin', 'supervisor', 'sucursal', 'jc'), (req, res) => {
+  const scope = scopeEntregas(req.user);
+  const sucMap = {}; db.sucursales.forEach(x => sucMap[x.id] = x.nombre);
+  const pend = db.sales.filter(s =>
+    Array.isArray(s.items) && s.items.length &&        // es mueble
+    s.estadoAut === 'autorizada' &&                    // ya autorizada
+    !(s.entregaMercancia && s.entregaMercancia.fecha) &&
+    (scope == null || s.sucursalId === scope));
+  const map = s => { const c = db.clients.find(x => x.id === s.clientId) || {}; return {
+    saleId: s.id, folio: s.folio, cliente: c.nombre || '—', tel: c.tel || '',
+    dir: [c.calle, c.col, c.ciudad].filter(Boolean).join(', '), lat: c.lat, lng: c.lng,
+    sucursal: sucMap[s.sucursalId] || '—', cobrador: s.prom || '',
+    articulos: s.articulos || [], items: s.items || [], total: s.total, cuota: s.cuota, plazo: s.plazo,
+    autorizadaAt: s.autorizadaAt
+  }; };
+  res.json({ bandeja: pend.map(map).reverse(), total: pend.length });
+});
+
+/* Marcar entregado: foto del mueble en casa + firma. Arranca el reloj de cobranza. */
+app.post('/api/sales/:id/entregar-mueble', auth, rol('admin', 'supervisor', 'sucursal', 'jc'), async (req, res) => {
+  const s = db.sales.find(x => x.id == req.params.id);
+  if (!s) return res.status(404).json({ error: 'Venta no encontrada' });
+  if (!(Array.isArray(s.items) && s.items.length)) return res.status(400).json({ error: 'Esta venta no es de mercancía' });
+  if (s.estadoAut !== 'autorizada') return res.status(409).json({ error: 'La venta debe estar autorizada antes de entregar' });
+  if (s.entregaMercancia && s.entregaMercancia.fecha) return res.status(409).json({ error: 'Este mueble ya fue entregado' });
+  const scope = scopeEntregas(req.user);
+  if (scope != null && s.sucursalId !== scope) return res.status(403).json({ error: 'Esa venta no es de tu sucursal' });
+  let { lat, lng, fotoMueble, firma } = req.body;
+  if (!fotoMueble) return res.status(400).json({ error: 'Sube la foto del mueble entregado en casa del cliente' });
+  if (!firma) return res.status(400).json({ error: 'Falta la firma del cliente de recibido' });
+  // Fotos a mp_fotos (fuera del bloque). Si falla, se quedan en el bloque: la entrega no se pierde.
+  if (FOTOS) {
+    fotoMueble = await fotoGuardar(fotoMueble, 'sale:' + s.id + ':fotoMueble');
+    firma      = await fotoGuardar(firma,      'sale:' + s.id + ':firmaEntrega');
+  }
+  s.entregado = true;
+  s.entregaMercancia = {
+    fecha: new Date().toISOString(),
+    por: { rol: req.user.rol, id: req.user.id, nombre: req.user.nombre },
+    lat: typeof lat === 'number' ? lat : null, lng: typeof lng === 'number' ? lng : null,
+    fotoMueble, firma
+  };
+  const cli = db.clients.find(c => c.id === s.clientId);
+  if (cli && typeof cli.lat !== 'number' && typeof lat === 'number') { cli.lat = lat; cli.lng = lng; cli.geoSrc = 'entrega'; }
+  logOp('entrega_mueble', String(s.id), { folio: s.folio, por: req.user.nombre, cliente: cli && cli.nombre });
+  saveDB();
+  res.json({ ok: true, folio: s.folio, desde: s.entregaMercancia.fecha });
+});
+
+/* Ver la evidencia de entrega */
+app.get('/api/sales/:id/entrega-mueble', auth, async (req, res) => {
+  const s = db.sales.find(x => x.id == req.params.id);
+  if (!s || !s.entregaMercancia) return res.status(404).json({ error: 'Sin entrega registrada' });
+  const exp = await fotoExpandir(s.entregaMercancia, ['fotoMueble', 'firma']);
+  res.json({ fecha: s.entregaMercancia.fecha, por: s.entregaMercancia.por, lat: s.entregaMercancia.lat, lng: s.entregaMercancia.lng, fotoMueble: exp.fotoMueble || null, firma: exp.firma || null });
+});
 
 /* ==================== AUTORIZACIÓN DE VENTAS (MueblePro) ====================
    El vendedor levanta; el gerente aprueba. Una venta pendiente no genera cartera
