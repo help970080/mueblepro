@@ -4239,8 +4239,25 @@ app.get('/api/entregas-mueble', auth, rol('admin', 'supervisor', 'sucursal', 'jc
   res.json({ bandeja: pend.map(map).reverse(), total: pend.length });
 });
 
+/* Ventas del propio vendedor: autorizadas y aún sin entregar (para el botón Entregar del POS) */
+app.get('/api/mis-entregas', auth, rol('vendedor', 'admin', 'supervisor', 'sucursal'), (req, res) => {
+  const mias = db.sales.filter(s =>
+    Array.isArray(s.items) && s.items.length &&
+    s.estadoAut === 'autorizada' &&
+    !(s.entregaMercancia && s.entregaMercancia.fecha) &&
+    (req.user.rol !== 'vendedor' || s.levantadaPor === req.user.nombre));
+  const pend = db.sales.filter(s =>
+    Array.isArray(s.items) && s.items.length && s.estadoAut === 'pendiente' &&
+    (req.user.rol !== 'vendedor' || s.levantadaPor === req.user.nombre));
+  const map = s => { const c = db.clients.find(x => x.id === s.clientId) || {}; return {
+    saleId: s.id, folio: s.folio, cliente: c.nombre || '—', dir: [c.calle, c.col].filter(Boolean).join(', '),
+    lat: c.lat, lng: c.lng, articulos: s.articulos || [], items: s.items || [], cuota: s.cuota, plazo: s.plazo, estadoAut: s.estadoAut
+  }; };
+  res.json({ paraEntregar: mias.map(map).reverse(), pendientesAut: pend.map(map).reverse() });
+});
+
 /* Marcar entregado: foto del mueble en casa + firma. Arranca el reloj de cobranza. */
-app.post('/api/sales/:id/entregar-mueble', auth, rol('admin', 'supervisor', 'sucursal', 'jc'), async (req, res) => {
+app.post('/api/sales/:id/entregar-mueble', auth, rol('admin', 'supervisor', 'sucursal', 'jc', 'vendedor'), async (req, res) => {
   const s = db.sales.find(x => x.id == req.params.id);
   if (!s) return res.status(404).json({ error: 'Venta no encontrada' });
   if (!(Array.isArray(s.items) && s.items.length)) return res.status(400).json({ error: 'Esta venta no es de mercancía' });
@@ -4248,6 +4265,8 @@ app.post('/api/sales/:id/entregar-mueble', auth, rol('admin', 'supervisor', 'suc
   if (s.entregaMercancia && s.entregaMercancia.fecha) return res.status(409).json({ error: 'Este mueble ya fue entregado' });
   const scope = scopeEntregas(req.user);
   if (scope != null && s.sucursalId !== scope) return res.status(403).json({ error: 'Esa venta no es de tu sucursal' });
+  // El vendedor solo puede entregar las ventas que él levantó.
+  if (req.user.rol === 'vendedor' && s.levantadaPor !== req.user.nombre) return res.status(403).json({ error: 'Solo puedes entregar tus propias ventas' });
   let { lat, lng, fotoMueble, firma } = req.body;
   if (!fotoMueble) return res.status(400).json({ error: 'Sube la foto del mueble entregado en casa del cliente' });
   if (!firma) return res.status(400).json({ error: 'Falta la firma del cliente de recibido' });
