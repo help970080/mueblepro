@@ -1622,8 +1622,9 @@ app.post('/api/sales', auth, rol('admin', 'supervisor', 'sucursal', 'vendedor'),
       if (!art) return res.status(400).json({ error: 'Artículo no encontrado en el catálogo' });
       if (art.activo === false) return res.status(400).json({ error: `"${art.nombre}" ya no está activo` });
       const cant = Math.max(1, Math.min(99, Math.round(+it.cantidad || 1)));
+      // La validación por sucursal se hace más abajo (ya con sucCred). Aquí solo un chequeo suave del total.
       if (art.stock != null && art.stock < cant)
-        return res.status(400).json({ error: `Sin existencias de "${art.nombre}" (quedan ${art.stock})` });
+        return res.status(400).json({ error: `Sin existencias de "${art.nombre}" (quedan ${art.stock} en total)` });
       const precio = +art.precioContado || 0;
       // Se guarda COPIA del precio: si mañana sube, esta venta conserva el de hoy.
       _itemsVenta.push({ articuloId: art.id, sku: art.sku || '', nombre: art.nombre, cantidad: cant, precio });
@@ -1662,7 +1663,14 @@ app.post('/api/sales', auth, rol('admin', 'supervisor', 'sucursal', 'vendedor'),
     // Se descuentan existencias al levantar la venta (queda apartada la mercancía).
     for (const i of _itemsVenta) {
       const art = db.catalogo.find(a => a.id === i.articuloId);
-      if (art && art.stock != null) art.stock = Math.max(0, art.stock - i.cantidad);
+      if (!art) continue;
+      _existMigra(art);
+      const enSuc = _existSuc(art, sucCred);
+      if (enSuc < i.cantidad) {
+        logOp('inv', String(art.id), { articulo: art.nombre, sucursalId: sucCred, tipo: 'venta_sin_stock', delta: -i.cantidad, antes: enSuc, despues: enSuc, folio, saleId: sale.id, aviso: 'venta sin existencias en sucursal' });
+      } else {
+        _existMover(art, sucCred, -i.cantidad, 'venta', { folio, saleId: sale.id, cliente: client.nombre });
+      }
     }
     logOp('venta_articulos', String(sale.id), { folio, items: _itemsVenta, totalContado: _totalContado, enganche: _enganche, financiado: _montoFin });
 
@@ -4375,7 +4383,7 @@ app.post('/api/ventas/:id/rechazar', auth, rol('admin', 'supervisor'), (req, res
   if (Array.isArray(sale.items)) {
     for (const i of sale.items) {
       const art = (db.catalogo || []).find(a => a.id === i.articuloId);
-      if (art && art.stock != null) art.stock += i.cantidad;
+      if (art) { _existMigra(art); _existMover(art, sale.sucursalId, i.cantidad, 'devolucion', { folio: sale.folio, saleId: sale.id, motivo: 'venta rechazada' }); }
     }
   }
   sale.estadoAut = 'rechazada';
@@ -4438,6 +4446,7 @@ function _artNormaliza(b, art) {
   art.precioContado = r2(b.precioContado);
   art.precioCreditoFijo = r2(b.precioCreditoFijo);
   art.engancheMinPct = Math.max(0, Math.min(100, +b.engancheMinPct || 0));
+  art.costo = r2(b.costo);   // costo unitario, para valor de inventario
   art.stock = (b.stock === '' || b.stock == null) ? null : Math.max(0, Math.round(+b.stock || 0));
   art.activo = b.activo !== false;
   art.publico = b.publico !== false;   // sale o no en el catálogo público
@@ -4549,6 +4558,115 @@ async function _fotosDeLista(refs) {
   const exp = await fotoExpandirLista(envuelto, ['f']);
   return exp.map(o => o.f).filter(Boolean);
 }
+
+/* ==================== INVENTARIO POR SUCURSAL (MueblePro) ====================
+   Cada artículo lleva art.exist = { sucId: cantidad }. El art.stock global se
+   mantiene como ESPEJO (suma de todas las sucursales) para no romper el catálogo
+   público ni el POS viejo. El movimiento real queda en el kardex (oplog tipo inv).
+   ========================================================================= */
+function _existMap(art) { if (!art.exist || typeof art.exist !== 'object') art.exist = {}; return art.exist; }
+function _existTotal(art) { const e = _existMap(art); return Object.values(e).reduce((a, n) => a + (+n || 0), 0); }
+function _existSuc(art, sucId) { return +(_existMap(art)[String(sucId)] || 0); }
+function _existMover(art, sucId, delta, tipo, extra) {
+  const e = _existMap(art); const k = String(sucId);
+  const antes = +(e[k] || 0);
+  const desp = Math.max(0, antes + delta);
+  e[k] = desp;
+  art.stock = _existTotal(art);   // mantener espejo global
+  logOp('inv', String(art.id), Object.assign({ articulo: art.nombre, sku: art.sku || '', sucursalId: +sucId, tipo, delta, antes, despues: desp }, extra || {}));
+  return desp;
+}
+// Migración perezosa: si un artículo viejo tiene art.stock pero no art.exist,
+// se le asigna todo el stock a la sucursal 1 la primera vez que se toca.
+function _existMigra(art) {
+  if (!art.exist && art.stock != null && art.stock > 0) { art.exist = { '1': art.stock }; }
+  else if (!art.exist) { art.exist = {}; }
+  return art;
+}
+
+/* Vista de inventario: existencias por sucursal, valor y alertas */
+app.get('/api/inventario', auth, rol('admin', 'supervisor', 'sucursal'), (req, res) => {
+  const scope = (req.user.rol === 'sucursal') ? Number(req.user.sucursalId || 0) : null;
+  const sucs = db.sucursales.map(x => ({ id: x.id, nombre: x.nombre }));
+  const umbral = 2;   // alerta si quedan <= 2
+  const arts = (db.catalogo || []).filter(a => a.activo !== false).map(a => {
+    _existMigra(a);
+    const e = _existMap(a);
+    const porSuc = {}; let total = 0;
+    (scope != null ? [{ id: scope }] : sucs).forEach(su => { const q = +(e[String(su.id)] || 0); porSuc[su.id] = q; total += q; });
+    return {
+      id: a.id, sku: a.sku || '', nombre: a.nombre, categoria: a.categoria,
+      costo: a.costo || 0, precioContado: a.precioContado || 0,
+      porSuc, total, valorCosto: Math.round((a.costo || 0) * total),
+      agotado: total <= 0, bajo: total > 0 && total <= umbral, tieneFoto: !!a.foto
+    };
+  });
+  const valorTotal = arts.reduce((s, a) => s + a.valorCosto, 0);
+  const alertas = arts.filter(a => a.agotado || a.bajo).length;
+  res.json({ sucursales: scope != null ? sucs.filter(s => s.id === scope) : sucs, articulos: arts, valorInventario: valorTotal, alertas, umbral });
+});
+
+/* Entrada de mercancía: suma existencias a una sucursal y registra costo */
+app.post('/api/inventario/entrada', auth, rol('admin', 'supervisor', 'sucursal'), (req, res) => {
+  const { articuloId, sucursalId, cantidad, costoUnitario, nota } = req.body || {};
+  const art = (db.catalogo || []).find(a => a.id === +articuloId);
+  if (!art) return res.status(404).json({ error: 'Artículo no encontrado' });
+  const suc = (req.user.rol === 'sucursal') ? Number(req.user.sucursalId || 0) : +sucursalId;
+  if (!suc) return res.status(400).json({ error: 'Indica la sucursal' });
+  const cant = Math.round(+cantidad || 0);
+  if (!(cant > 0)) return res.status(400).json({ error: 'La cantidad debe ser mayor a cero' });
+  _existMigra(art);
+  if (+costoUnitario > 0) art.costo = Math.round(+costoUnitario * 100) / 100;   // actualiza costo de referencia
+  const desp = _existMover(art, suc, cant, 'entrada', { por: req.user.nombre, nota: String(nota || '').slice(0, 200), costoUnitario: art.costo });
+  saveDB();
+  res.json({ ok: true, articulo: art.nombre, sucursalId: suc, existencias: desp });
+});
+
+/* Ajuste manual (merma, corrección de conteo) */
+app.post('/api/inventario/ajuste', auth, rol('admin', 'supervisor', 'sucursal'), (req, res) => {
+  const { articuloId, sucursalId, nuevaCantidad, motivo } = req.body || {};
+  const art = (db.catalogo || []).find(a => a.id === +articuloId);
+  if (!art) return res.status(404).json({ error: 'Artículo no encontrado' });
+  const suc = (req.user.rol === 'sucursal') ? Number(req.user.sucursalId || 0) : +sucursalId;
+  if (!suc) return res.status(400).json({ error: 'Indica la sucursal' });
+  _existMigra(art);
+  const nueva = Math.max(0, Math.round(+nuevaCantidad || 0));
+  const delta = nueva - _existSuc(art, suc);
+  _existMover(art, suc, delta, 'ajuste', { por: req.user.nombre, motivo: String(motivo || '').slice(0, 200) });
+  saveDB();
+  res.json({ ok: true, articulo: art.nombre, sucursalId: suc, existencias: nueva });
+});
+
+/* Traspaso entre sucursales */
+app.post('/api/inventario/traspaso', auth, rol('admin', 'supervisor'), (req, res) => {
+  const { articuloId, deSucursal, aSucursal, cantidad } = req.body || {};
+  const art = (db.catalogo || []).find(a => a.id === +articuloId);
+  if (!art) return res.status(404).json({ error: 'Artículo no encontrado' });
+  const de = +deSucursal, a = +aSucursal, cant = Math.round(+cantidad || 0);
+  if (!de || !a || de === a) return res.status(400).json({ error: 'Sucursales inválidas' });
+  if (!(cant > 0)) return res.status(400).json({ error: 'Cantidad inválida' });
+  _existMigra(art);
+  if (_existSuc(art, de) < cant) return res.status(400).json({ error: `Solo hay ${_existSuc(art, de)} en la sucursal origen` });
+  _existMover(art, de, -cant, 'traspaso_salida', { por: req.user.nombre, haciaSucursal: a });
+  _existMover(art, a, cant, 'traspaso_entrada', { por: req.user.nombre, desdeSucursal: de });
+  saveDB();
+  res.json({ ok: true, articulo: art.nombre });
+});
+
+/* Kardex de un artículo: historial de movimientos desde el oplog */
+app.get('/api/inventario/:id/kardex', auth, rol('admin', 'supervisor', 'sucursal'), async (req, res) => {
+  const art = (db.catalogo || []).find(a => a.id === +req.params.id);
+  if (!art) return res.status(404).json({ error: 'Artículo no encontrado' });
+  let movs = [];
+  if (USE_PG) {
+    const s = als.getStore();
+    try {
+      const q = await pool.query("SELECT ts, data FROM mp_oplog WHERE tenant=$1 AND tipo='inv' AND ref=$2 ORDER BY ts DESC LIMIT 200", [s.tenantId, String(art.id)]);
+      movs = q.rows.map(r => ({ ts: r.ts, ...(r.data || {}) }));
+    } catch (e) { movs = []; }
+  }
+  res.json({ articulo: art.nombre, sku: art.sku || '', existencias: _existMap(art), kardex: movs });
+});
 
 /* ==================== CATÁLOGO PÚBLICO (sin sesión) ====================
    Lo abre cualquiera desde la calle: ve muebles, precio de contado y el pago
