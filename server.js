@@ -2079,7 +2079,7 @@ app.get('/api/mi-ruta', auth, (req, res) => {
     const cobradoSemana = db.movimientos.filter(m => m.saleId === s.id && m.abono > 0 && m.forma !== 'descuento' && m.forma !== 'recomendacion' && _parseFechaMx(m.fecha) >= wkStart).reduce((a,m)=>a+m.abono,0);
     return { id: s.id, folio: s.folio, nombre: c.nombre || '—', dir: [c.calle, c.col].filter(Boolean).join(', '), tel: c.tel || '', tipo: s.tipo, cuota: s.cuota, saldo: saldoDe(s.id),
       // enBase: el crédito ya existía con saldo al ARRANCAR la semana. Los vendidos a media semana entran hasta la próxima.
-      enBase: ((_sIniRuta[s.id]||0) > 0.5) || (s.importado===true && saldoDe(s.id) > 0.5),
+      enBase: ((_sIniRuta[s.id]||0) > 0.5) || (s.importado===true && saldoDe(s.id) > 0.5) || (Array.isArray(s.items) && s.items.length && s.entregaMercancia && s.entregaMercancia.fecha && saldoDe(s.id) > 0.5),
       cobradoHoy, formaHoy, pagoExterno, externoForma, cobradoSemana,
       atraso: at.montoAtraso, diasAtraso: at.diasAtraso, cuotasAtraso: at.cuotasAtraso, cuotasDebidas: at.cuotasDebidas, cuotasPagadas: at.cuotasPagadas, tieneEvidencia: !!s.entrega, op: oportunidadDe(s) };
   }).filter(Boolean));
@@ -2202,7 +2202,10 @@ app.get('/api/dashboard', auth, (req,res)=>{
     if(t<desde)  _sDesde[m.saleId]=(_sDesde[m.saleId]||0)+d;
   });
   // ¿el crédito formaba parte de la base con la que arrancó la semana?
-  const _enBaseSemana = s => ((_sIni[s.id]||0) > 0.5) || (s.importado===true && saldoDe(s.id) > 0.5);
+  // MUEBLES: si el mueble se ENTREGÓ (arrancó cobranza) y tiene saldo, entra a la base de la semana
+  // de inmediato — no espera al próximo ciclo. Así aparece en ruta y débito la misma semana.
+  const _muebleEntregado = s => Array.isArray(s.items) && s.items.length && s.entregaMercancia && s.entregaMercancia.fecha && saldoDe(s.id) > 0.5;
+  const _enBaseSemana = s => ((_sIni[s.id]||0) > 0.5) || (s.importado===true && saldoDe(s.id) > 0.5) || _muebleEntregado(s);
   // atraso acumulado por sale
   function atrasoDe(s){
     const totAb=db.movimientos.filter(m=>m.saleId===s.id && m.abono>0).reduce((a,m)=>a+m.abono,0);
