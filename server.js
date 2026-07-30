@@ -513,7 +513,7 @@ function _canonProm(nombre) {
   const u = db.users.find(u => u.rol === 'cobrador' && _normNombre(u.nombre) === n);
   return u ? u.nombre : (nombre || '');
 }
-function saldoDe(saleId) { return db.movimientos.filter(m => m.saleId === saleId).reduce((s, m) => s + (m.cargo || 0) - (m.abono || 0), 0); }
+function saldoDe(saleId) { return db.movimientos.filter(m => m.saleId === saleId && !m.informativo).reduce((s, m) => s + (m.cargo || 0) - (m.abono || 0), 0); }
 // Saldo de apertura del crédito = primer cargo (disposición en créditos nuevos, "saldo inicial" en importados).
 // Es el saldo REAL con el que arrancó el reloj de cobranza, no la deuda origen.
 function aperturaDe(saleId) {
@@ -1690,7 +1690,11 @@ app.post('/api/sales', auth, rol('admin', 'supervisor', 'sucursal', 'vendedor'),
       logOp('enganche', String(sale.id), { folio, monto: _enganche, forma: _fEng, recibio: req.user.nombre, rol: req.user.rol, sucursalId: +_sidEng });
     }
   }
-  if (r.descuentaPP) { sale.primerPago = r.primerPago; sale.descuentaPP = true; sale.entregaMonto = r.entregaCliente; }
+  // MUEBLES: si la venta lleva artículos, NO se usa el "primer pago descontado" (es una
+  // mecánica de crédito de efectivo que no aplica aquí y ensucia el estado de cuenta).
+  // El enganche se maneja aparte, como renglón informativo.
+  const _esVentaMueble = !!(_itemsVenta && _itemsVenta.length);
+  if (r.descuentaPP && !_esVentaMueble) { sale.primerPago = r.primerPago; sale.descuentaPP = true; sale.entregaMonto = r.entregaCliente; }
   /* --- Autorización (MueblePro) ---
      Una venta levantada por un VENDEDOR de calle nace PENDIENTE: no genera cartera
      ni entrega hasta que un admin/supervisor la autoriza. Las de admin/sucursal
@@ -1707,8 +1711,12 @@ app.post('/api/sales', auth, rol('admin', 'supervisor', 'sucursal', 'vendedor'),
   // El cargo del crédito a cartera SOLO se genera si ya está autorizada.
   if (!_requiereAut) {
     movAdd({ id: nextId('movimientos'), saleId: sale.id, fecha: fechaMxHoyDDMM(), concepto: 'Disposición de crédito', origen: 'Sucursal', cargo: r.total, abono: 0 });
-  // Productos que descuentan el primer pago: se registra de inmediato como abono (el cliente recibe monto − primer pago)
-    if (r.descuentaPP && r.primerPago > 0) {
+    // Enganche recibido: renglón INFORMATIVO. El crédito ya se calculó sobre (contado − enganche),
+    // así que el enganche NO baja el saldo otra vez; solo queda registrado para que el cliente lo vea.
+    if (_esVentaMueble && _enganche > 0) {
+      movAdd({ id: nextId('movimientos'), saleId: sale.id, fecha: fechaMxHoyDDMM(), concepto: 'Enganche recibido', origen: 'Enganche', cargo: 0, abono: 0, informativo: true, monto: _enganche, forma: sale.engancheForma || 'efectivo' });
+    }
+    if (r.descuentaPP && !_esVentaMueble && r.primerPago > 0) {
       movAdd({ id: nextId('movimientos'), saleId: sale.id, fecha: fechaMxHoyDDMM(), concepto: 'Primer pago descontado al inicio', origen: 'Origen del crédito', cargo: 0, abono: r.primerPago, forma: 'descuento', sucursalCobro: sucCred, sucursalCredito: sucCred });
     }
   }
@@ -1721,7 +1729,10 @@ app.post('/api/sales', auth, rol('admin', 'supervisor', 'sucursal', 'vendedor'),
 app.get('/api/sales/:id/movimientos', auth, (req, res) => {
   const id = +req.params.id;
   let saldo = 0;
-  const rows = db.movimientos.filter(m => m.saleId === id).map(m => { saldo += (m.cargo || 0) - (m.abono || 0); return { ...m, saldo }; });
+  const rows = db.movimientos.filter(m => m.saleId === id).map(m => {
+    if (!m.informativo) saldo += (m.cargo || 0) - (m.abono || 0);   // los renglones informativos (enganche) no mueven saldo
+    return { ...m, saldo };
+  });
   res.json({ movimientos: rows, saldo });
 });
 
@@ -4237,6 +4248,10 @@ app.post('/api/ventas/:id/autorizar', auth, rol('admin', 'supervisor'), (req, re
   sale.autorizadaAt = new Date().toISOString();
   // Ahora sí se genera la cartera (el cargo que se retuvo al levantarla).
   movAdd({ id: nextId('movimientos'), saleId: sale.id, fecha: fechaMxHoyDDMM(), concepto: 'Disposición de crédito', origen: 'Sucursal', cargo: sale.total, abono: 0 });
+  // Enganche informativo (ventas de muebles llevan sale.items y sale.enganche)
+  if (Array.isArray(sale.items) && sale.items.length && sale.enganche > 0) {
+    movAdd({ id: nextId('movimientos'), saleId: sale.id, fecha: fechaMxHoyDDMM(), concepto: 'Enganche recibido', origen: 'Enganche', cargo: 0, abono: 0, informativo: true, monto: sale.enganche, forma: sale.engancheForma || 'efectivo' });
+  }
   if (sale.descuentaPP && sale.primerPago > 0) {
     movAdd({ id: nextId('movimientos'), saleId: sale.id, fecha: fechaMxHoyDDMM(), concepto: 'Primer pago descontado al inicio', origen: 'Origen del crédito', cargo: 0, abono: sale.primerPago, forma: 'descuento', sucursalCobro: sale.sucursalId, sucursalCredito: sale.sucursalId });
   }
