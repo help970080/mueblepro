@@ -96,15 +96,41 @@
   .spin{width:26px;height:26px;border:3px solid var(--line);border-top-color:var(--acc);border-radius:50%;animation:sp .7s linear infinite;margin:0 auto 10px}
   @keyframes sp{to{transform:rotate(360deg)}}
   .hint{font-size:.74rem;color:var(--faint);margin-top:4px}
+
+  .tabs{display:flex;gap:0;background:var(--surf-1);border-bottom:1px solid var(--line);position:sticky;top:57px;z-index:19}
+  .tab{flex:1;padding:12px;text-align:center;font-family:inherit;font-size:.9rem;font-weight:600;border:none;background:none;color:var(--dim);cursor:pointer;border-bottom:2px solid transparent}
+  .tab.on{color:var(--acc-d);border-bottom-color:var(--acc)}
+  .tab .b{display:inline-block;background:var(--acc);color:#fff;border-radius:10px;font-size:.7rem;padding:0 6px;margin-left:4px}
+  .view{display:none}
+  .view.on{display:block}
+  .ent-card{background:var(--surf-1);border:1px solid var(--line);border-radius:14px;padding:14px;margin:12px 14px}
+  .ent-card .folio{font-weight:700;color:var(--acc-d);font-size:.85rem}
+  .ent-card .n{font-weight:600;font-size:.98rem}
+  .ent-card .d{font-size:.8rem;color:var(--dim);margin-top:2px}
+  .ent-card .arts{background:var(--surf-2);border-radius:9px;padding:8px 11px;font-size:.84rem;margin:9px 0}
+  .ent-card .st{font-size:.76rem;font-weight:600;padding:3px 9px;border-radius:20px;display:inline-block;margin-bottom:8px}
+  .ent-card .st.pend{background:#fde8cf;color:#a8600a}
+  .ent-card .st.aut{background:#d5f0e0;color:var(--grn)}
+  .ent-acts{display:flex;gap:8px;margin-top:8px}
+  .ent-acts a,.ent-acts button{flex:1;font-family:inherit;font-weight:600;font-size:.85rem;padding:10px;border-radius:10px;text-align:center;text-decoration:none;cursor:pointer;border:1px solid var(--line);background:var(--surf-1);color:var(--ink)}
+  .ent-acts .go{background:linear-gradient(135deg,var(--grn),#0f6b41);color:#fff;border:none}
+  .foto-btn{width:100%;aspect-ratio:16/10;border:2px dashed var(--line);border-radius:11px;background:var(--surf-2);display:grid;place-items:center;cursor:pointer;color:var(--faint);overflow:hidden}
+  .foto-btn img{width:100%;height:100%;object-fit:cover}
+  .firma-cv{width:100%;height:160px;background:#fff;border:2px solid var(--line);border-radius:11px;touch-action:none}
 </style>
 </head>
 <body>
 <div class="top">
   <div class="logo">M</div>
   <h1>Nueva venta</h1>
-  <a href="mueblepro.html">← Panel</a>
+  <a href="#" onclick="salir();return false">Salir</a>
+</div>
+<div class="tabs">
+  <button class="tab on" id="tab-v" onclick="verTab('vender')">Vender</button>
+  <button class="tab" id="tab-e" onclick="verTab('entregar')">Mis entregas <span class="b" id="ent-badge" style="display:none">0</span></button>
 </div>
 
+<div class="view on" id="view-vender">
 <div class="search">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
   <input id="q" placeholder="Buscar mueble…" oninput="renderProds()">
@@ -113,11 +139,16 @@
 
 <div id="prods"><div class="loading"><div class="spin"></div>Cargando catálogo…</div></div>
 
+</div><!-- /view-vender -->
+<div class="view" id="view-entregar"><div id="ent-cont"><div class="loading"><div class="spin"></div>Cargando…</div></div></div>
 <div class="cartbar" id="cartbar">
   <div class="n" id="cart-n">0</div>
   <div class="lbl">Total contado<b id="cart-total">$0</b></div>
   <button onclick="abrirCheckout()">Continuar →</button>
 </div>
+
+<!-- ENTREGA (overlay propio) -->
+<div class="sheet" id="sheet-ent"><div class="sheet-inner" id="sheet-ent-inner"></div></div>
 
 <!-- CHECKOUT -->
 <div class="sheet" id="sheet">
@@ -410,12 +441,97 @@ async function cerrarVenta(){
     const pend = r.estadoAut==='pendiente';
     toast(pend ? `Venta ${r.folio} registrada — pendiente de autorización` : `Venta ${r.folio} registrada`);
     CART={}; updBar(); cerrarCheckout(); renderProds();
-    setTimeout(()=>{ if(confirm('Venta registrada.\n\n¿Levantar otra venta?')) location.reload(); else location.href='mueblepro.html'; },400);
+    setTimeout(()=>{
+      const esVend = ME && ME.rol==='vendedor';
+      if(confirm('Venta registrada.\n\n¿Levantar otra venta?')) location.reload();
+      else if(esVend) location.reload();      // el vendedor no va al panel admin
+      else location.href='mueblepro.html';    // admin/sucursal sí regresan a su panel
+    },400);
   }catch(e){ toast(e.message,true); btn.disabled=false; btn.textContent='Registrar venta'; }
 }
 
 document.getElementById('sheet').addEventListener('click',e=>{ if(e.target.id==='sheet') cerrarCheckout(); });
+document.getElementById('sheet-ent').addEventListener('click',e=>{ if(e.target.id==='sheet-ent') cerrarEnt(); });
+function salir(){ try{localStorage.clear();}catch(e){} location.replace('index.html'); }
+
+/* ==================== MIS ENTREGAS (dentro del POS) ==================== */
+let ENT_ACT=null, ENT_FOTO=null, ENT_GPS=null, _efctx=null, _edraw=false, _ehas=false;
+function verTab(t){
+  document.getElementById('view-vender').classList.toggle('on', t==='vender');
+  document.getElementById('view-entregar').classList.toggle('on', t==='entregar');
+  document.getElementById('tab-v').classList.toggle('on', t==='vender');
+  document.getElementById('tab-e').classList.toggle('on', t==='entregar');
+  document.getElementById('cartbar').style.display = t==='vender' ? '' : 'none';
+  if(t==='entregar') cargarEntregas();
+}
+async function cargarEntregas(){
+  try{
+    const d=await api('GET','/api/mis-entregas');
+    const aut=d.paraEntregar||[], pend=d.pendientesAut||[];
+    const badge=document.getElementById('ent-badge');
+    if(aut.length){ badge.style.display='inline-block'; badge.textContent=aut.length; } else badge.style.display='none';
+    const cont=document.getElementById('ent-cont');
+    if(!aut.length && !pend.length){ cont.innerHTML='<div class="loading">No tienes ventas por entregar.</div>'; return; }
+    let html='';
+    if(aut.length){ html+=aut.map(e=>entRow(e,true)).join(''); }
+    if(pend.length){ html+='<div style="padding:10px 16px 4px;font-size:.78rem;color:var(--faint);font-weight:600">Esperando autorización del gerente</div>'+pend.map(e=>entRow(e,false)).join(''); }
+    cont.innerHTML=html;
+  }catch(e){ document.getElementById('ent-cont').innerHTML='<div class="loading">'+e.message+'</div>'; }
+}
+function entRow(e,listo){
+  const arts=(e.items&&e.items.length)?e.items.map(i=>`${i.cantidad>1?i.cantidad+' × ':''}${esc(i.nombre)}`).join(', '):(e.articulos||[]).join(', ');
+  const maps=(e.lat&&e.lng)?`https://www.google.com/maps/dir/?api=1&destination=${e.lat},${e.lng}`:`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(e.dir)}`;
+  return `<div class="ent-card">
+    <span class="st ${listo?'aut':'pend'}">${listo?'✓ Autorizada · lista para entregar':'⏳ Pendiente de autorización'}</span>
+    <div class="folio">${esc(e.folio)}</div>
+    <div class="n">${esc(e.cliente)}</div>
+    <div class="d">${esc(e.dir)||'sin dirección'}</div>
+    <div class="arts">${arts||'—'}</div>
+    <div class="d">Pago semanal ${money(e.cuota)} × ${e.plazo}</div>
+    ${listo?`<div class="ent-acts"><a class="btn" href="${maps}" target="_blank">🧭 Llegar</a><button class="go" onclick='abrirEnt(${e.saleId},${JSON.stringify(esc(e.cliente))})'>Entregar</button></div>`:''}
+  </div>`;
+}
+function abrirEnt(id,cli){
+  ENT_ACT=id; ENT_FOTO=null; ENT_GPS=null;
+  document.getElementById('sheet-ent-inner').innerHTML=`
+    <div class="sh-head"><h2>Entregar a ${cli}</h2><span class="x" onclick="cerrarEnt()">✕</span></div>
+    <div class="sh-body">
+      <div class="sec"><h3>📷 Foto del mueble en casa</h3><div class="foto-btn" id="ent-fbtn" onclick="entPickFoto()"><div style="text-align:center"><div style="font-size:1.8rem">📷</div>Tomar foto</div></div></div>
+      <div class="sec"><h3>✍️ Firma del cliente</h3><canvas class="firma-cv" id="ent-firma"></canvas><div style="text-align:right;margin-top:6px"><button class="btn ghost" style="flex:none;padding:6px 12px" onclick="entLimpiaFirma()">Borrar</button></div></div>
+      <button class="btn-final" id="ent-btn" onclick="entConfirmar()">Confirmar entrega</button>
+    </div>`;
+  document.getElementById('sheet-ent').classList.add('on');
+  setTimeout(entInitFirma,50);
+}
+function cerrarEnt(){ document.getElementById('sheet-ent').classList.remove('on'); }
+function entPickFoto(){
+  const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.capture='environment';
+  inp.onchange=async()=>{ if(inp.files[0]){ try{ ENT_FOTO=await comprimir(inp.files[0],1100,.72); document.getElementById('ent-fbtn').innerHTML=`<img src="${ENT_FOTO}">`; }catch(e){ toast('No se pudo procesar',true); } } };
+  inp.click();
+}
+function entInitFirma(){
+  const cv=document.getElementById('ent-firma'); if(!cv) return; const r=cv.getBoundingClientRect();
+  cv.width=r.width; cv.height=r.height; _efctx=cv.getContext('2d'); _efctx.lineWidth=2.5; _efctx.lineCap='round'; _efctx.strokeStyle='#1b2330'; _ehas=false;
+  const pos=e=>{const t=e.touches?e.touches[0]:e;const b=cv.getBoundingClientRect();return{x:t.clientX-b.left,y:t.clientY-b.top};};
+  const st=e=>{e.preventDefault();_edraw=true;_ehas=true;const p=pos(e);_efctx.beginPath();_efctx.moveTo(p.x,p.y);};
+  const mv=e=>{if(!_edraw)return;e.preventDefault();const p=pos(e);_efctx.lineTo(p.x,p.y);_efctx.stroke();};
+  const en=()=>_edraw=false;
+  cv.addEventListener('mousedown',st);cv.addEventListener('mousemove',mv);cv.addEventListener('mouseup',en);cv.addEventListener('mouseleave',en);
+  cv.addEventListener('touchstart',st,{passive:false});cv.addEventListener('touchmove',mv,{passive:false});cv.addEventListener('touchend',en);
+}
+function entLimpiaFirma(){ const cv=document.getElementById('ent-firma'); _efctx.clearRect(0,0,cv.width,cv.height); _ehas=false; }
+async function entConfirmar(){
+  if(!ENT_FOTO) return toast('Falta la foto del mueble',true);
+  if(!_ehas) return toast('Falta la firma del cliente',true);
+  const btn=document.getElementById('ent-btn'); btn.disabled=true; btn.textContent='Guardando…';
+  try{
+    const d=await api('POST','/api/sales/'+ENT_ACT+'/entregar-mueble',{fotoMueble:ENT_FOTO,firma:document.getElementById('ent-firma').toDataURL('image/png')});
+    toast(`✓ ${d.folio} entregado`);
+    cerrarEnt(); cargarEntregas();
+  }catch(e){ toast(e.message,true); btn.disabled=false; btn.textContent='Confirmar entrega'; }
+}
 cargar();
+
 </script>
 </body>
 </html>
