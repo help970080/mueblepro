@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Comprobante · MueblePro</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',system-ui,Arial,sans-serif;color:#1b2330;background:#eef1f7;padding:16px}
+  .paper{max-width:720px;margin:0 auto;background:#fff;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.08);overflow:hidden}
+  .head{background:linear-gradient(135deg,#c47a1a,#9c5f10);color:#fff;padding:22px 26px;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px}
+  .head h1{font-size:1.4rem;font-weight:800}
+  .head .sub{font-size:.82rem;opacity:.9;margin-top:2px}
+  .head .folio{text-align:right}
+  .head .folio .f{font-size:1.1rem;font-weight:700}
+  .head .folio .d{font-size:.75rem;opacity:.85}
+  .estado{display:inline-block;font-size:.68rem;font-weight:700;padding:3px 9px;border-radius:20px;margin-top:6px;background:rgba(255,255,255,.2)}
+  .body{padding:22px 26px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+  @media(max-width:520px){.grid{grid-template-columns:1fr}}
+  .box{background:#f7f5f0;border-radius:10px;padding:13px 15px}
+  .box h3{font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;color:#9c5f10;margin-bottom:7px}
+  .box .l{font-size:.74rem;color:#6b6152;margin-top:5px}
+  .box .v{font-weight:600;font-size:.92rem}
+  .arts{width:100%;border-collapse:collapse;margin-bottom:18px}
+  .arts th{text-align:left;font-size:.66rem;text-transform:uppercase;color:#a89e8d;padding:8px;border-bottom:2px solid #e8e2d6}
+  .arts td{padding:9px 8px;border-bottom:1px solid #f0ece3;font-size:.88rem}
+  .arts .r{text-align:right}
+  .resumen{background:#231c14;color:#fff;border-radius:12px;padding:18px;margin-bottom:20px}
+  .resumen .row{display:flex;justify-content:space-between;padding:5px 0;font-size:.9rem}
+  .resumen .row.big{font-size:1.15rem;font-weight:800;border-top:1px solid rgba(255,255,255,.15);margin-top:8px;padding-top:12px}
+  .resumen .muted{color:rgba(255,255,255,.65)}
+  .resumen .acc{color:#e5a839}
+  h2.sec{font-size:.95rem;margin-bottom:10px;color:#231c14;display:flex;align-items:center;gap:7px}
+  .tabla{width:100%;border-collapse:collapse;font-size:.84rem}
+  .tabla th{background:#f7f5f0;text-align:left;font-size:.66rem;text-transform:uppercase;color:#9c5f10;padding:8px;border-bottom:2px solid #e8e2d6}
+  .tabla td{padding:8px;border-bottom:1px solid #f0ece3}
+  .tabla .r{text-align:right}
+  .tabla tr.pg{background:#eaf6ef}
+  .tabla tr.pg td:last-child{color:#2d7d46;font-weight:600}
+  .nota{font-size:.72rem;color:#a89e8d;margin-top:16px;line-height:1.5;border-top:1px dashed #e8e2d6;padding-top:12px}
+  .firma-zona{display:flex;justify-content:space-between;gap:30px;margin-top:34px}
+  .firma-zona .f{flex:1;text-align:center}
+  .firma-zona .linea{border-top:1px solid #231c14;margin-bottom:5px;padding-top:40px}
+  .firma-zona .lbl{font-size:.72rem;color:#6b6152}
+  .actions{position:sticky;bottom:0;background:#fff;border-top:1px solid #e8e2d6;padding:14px 26px;display:flex;gap:10px;justify-content:flex-end}
+  .btn{font-family:inherit;font-size:.9rem;font-weight:600;padding:11px 18px;border-radius:10px;cursor:pointer;border:1px solid #dde3ec;background:#fff;color:#1b2330}
+  .btn.wa{background:#25d366;color:#fff;border:none}
+  .btn.pr{background:linear-gradient(135deg,#c47a1a,#9c5f10);color:#fff;border:none}
+  .loading{text-align:center;padding:80px;color:#a89e8d}
+  @media print{
+    body{background:#fff;padding:0}
+    .paper{box-shadow:none;max-width:100%}
+    .actions{display:none}
+    .head{background:#9c5f10!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .resumen{background:#231c14!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .tabla tr.pg,.head,.box{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  }
+</style>
+</head>
+<body>
+<div id="app"><div class="loading">Cargando comprobante…</div></div>
+
+<script>
+const TOKEN=(()=>{try{return localStorage.getItem('mueblepro_token')}catch(e){return null}})();
+const SID=new URLSearchParams(location.search).get('id');
+let DATA=null;
+
+const money=n=>'$'+(Number(n)||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:0});
+function esc(s){return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function fFecha(iso){ if(!iso) return '—'; const d=new Date(iso+'T00:00:00'); return d.toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'}); }
+
+async function cargar(){
+  if(!TOKEN){ location.replace('index.html'); return; }
+  if(!SID){ document.getElementById('app').innerHTML='<div class="loading">Falta el folio de la venta.</div>'; return; }
+  try{
+    const r=await fetch('/api/sales/'+SID+'/comprobante',{headers:{Authorization:'Bearer '+TOKEN}});
+    if(r.status===401){ location.replace('index.html'); return; }
+    const d=await r.json();
+    if(!r.ok) throw new Error(d.error||'Error');
+    DATA=d; pintar(d);
+  }catch(e){ document.getElementById('app').innerHTML='<div class="loading">'+e.message+'</div>'; }
+}
+
+function pintar(d){
+  const arts=d.articulos.map(a=>`<tr><td>${esc(a.nombre)}</td><td class="r">${a.cantidad}</td><td class="r">${a.precio?money(a.precio):'—'}</td><td class="r">${a.subtotal?money(a.subtotal):'—'}</td></tr>`).join('');
+  const filas=d.tabla.map(f=>`<tr class="${f.pagada?'pg':''}"><td class="r">${f.n}</td><td>${fFecha(f.fecha)}</td><td class="r">${money(f.monto)}</td><td class="r">${money(f.saldo)}</td><td>${f.pagada?'✓ Pagada':'Pendiente'}</td></tr>`).join('');
+  const estadoTxt = d.entregado ? 'Entregado' : (d.estadoAut==='pendiente'?'Pendiente de autorización':'Autorizado');
+
+  document.getElementById('app').innerHTML=`
+  <div class="paper" id="paper">
+    <div class="head">
+      <div>
+        <h1>${esc(d.marca)}</h1>
+        <div class="sub">Comprobante de compra a crédito</div>
+        <span class="estado">${estadoTxt}</span>
+      </div>
+      <div class="folio">
+        <div class="f">${esc(d.folio)}</div>
+        <div class="d">${new Date(d.fecha).toLocaleDateString('es-MX',{day:'2-digit',month:'long',year:'numeric'})}</div>
+        ${d.sucursal?`<div class="d">${esc(d.sucursal)}</div>`:''}
+      </div>
+    </div>
+    <div class="body">
+      <div class="grid">
+        <div class="box">
+          <h3>Cliente</h3>
+          <div class="v">${esc(d.cliente.nombre)}</div>
+          ${d.cliente.tel?`<div class="l">Tel: ${esc(d.cliente.tel)}</div>`:''}
+          ${d.cliente.domicilio?`<div class="l">${esc(d.cliente.domicilio)}</div>`:''}
+        </div>
+        <div class="box">
+          <h3>Datos de la venta</h3>
+          ${d.vendedor?`<div class="l">Vendedor</div><div class="v" style="font-size:.85rem">${esc(d.vendedor)}</div>`:''}
+          ${d.cobrador?`<div class="l">Cobrador asignado</div><div class="v" style="font-size:.85rem">${esc(d.cobrador)}</div>`:''}
+          ${d.fechaEntrega?`<div class="l">Entregado el</div><div class="v" style="font-size:.85rem">${new Date(d.fechaEntrega).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'})}</div>`:''}
+        </div>
+      </div>
+
+      <h2 class="sec">🛋️ Artículos</h2>
+      <table class="arts">
+        <thead><tr><th>Descripción</th><th class="r">Cant.</th><th class="r">Precio</th><th class="r">Importe</th></tr></thead>
+        <tbody>${arts}</tbody>
+      </table>
+
+      <div class="resumen">
+        <div class="row"><span class="muted">Precio de contado</span><span>${money(d.totalContado)}</span></div>
+        <div class="row"><span class="muted">Enganche recibido</span><span>${money(d.enganche)}${d.engancheForma?' ('+esc(d.engancheForma)+')':''}</span></div>
+        <div class="row"><span class="muted">Monto financiado</span><span>${money(d.financiado)}</span></div>
+        <div class="row"><span class="muted">Costo del financiamiento</span><span>${money(d.interes)}</span></div>
+        <div class="row big"><span>Total a crédito</span><span class="acc">${money(d.totalCredito)}</span></div>
+        <div class="row"><span class="muted">${d.plazo} pagos de</span><span>${money(d.cuota)}</span></div>
+      </div>
+
+      <h2 class="sec">📅 Calendario de pagos</h2>
+      <table class="tabla">
+        <thead><tr><th class="r">#</th><th>Fecha de pago</th><th class="r">Cuota</th><th class="r">Saldo</th><th>Estado</th></tr></thead>
+        <tbody>${filas}</tbody>
+      </table>
+
+      <div class="firma-zona">
+        <div class="f"><div class="linea"></div><div class="lbl">Firma del cliente</div></div>
+        <div class="f"><div class="linea"></div><div class="lbl">Por ${esc(d.marca)}</div></div>
+      </div>
+
+      <p class="nota">Documento informativo para control del cliente. Las fechas son estimadas según la frecuencia del crédito. Conserve este comprobante. Cada pago será registrado por su cobrador; solicite su recibo en cada abono.</p>
+    </div>
+  </div>
+  <div class="actions">
+    <button class="btn" onclick="window.close()">Cerrar</button>
+    ${d.cliente.tel?`<button class="btn wa" onclick="mandarWA()">📱 Enviar por WhatsApp</button>`:''}
+    <button class="btn pr" onclick="window.print()">🖨 Imprimir / PDF</button>
+  </div>`;
+}
+
+function mandarWA(){
+  const d=DATA; if(!d) return;
+  let tel=(d.cliente.tel||'').replace(/\D/g,'');
+  if(tel.length===10) tel='52'+tel;
+  const l=[];
+  l.push(`*${d.marca}* — Comprobante ${d.folio}`);
+  l.push(`Cliente: ${d.cliente.nombre}`);
+  l.push('');
+  d.articulos.forEach(a=>l.push(`• ${a.cantidad>1?a.cantidad+'x ':''}${a.nombre}`));
+  l.push('');
+  l.push(`Contado: ${money(d.totalContado)}`);
+  l.push(`Enganche: ${money(d.enganche)}`);
+  l.push(`Total a crédito: ${money(d.totalCredito)}`);
+  l.push(`${d.plazo} pagos de ${money(d.cuota)}`);
+  l.push('');
+  l.push('*Calendario de pagos:*');
+  d.tabla.forEach(f=>l.push(`${f.n}. ${fFecha(f.fecha)} — ${money(f.monto)}${f.pagada?' ✓':''}`));
+  l.push('');
+  l.push('Conserve este comprobante para su control. ¡Gracias por su compra!');
+  const url=(tel?`https://wa.me/${tel}?text=`:`https://wa.me/?text=`)+encodeURIComponent(l.join('\n'));
+  window.open(url,'_blank');
+}
+
+cargar();
+</script>
+</body>
+</html>
