@@ -171,8 +171,8 @@
           <input id="f-eng" type="number" inputmode="numeric" placeholder="10" oninput="recalc()">
         </div>
         <div class="field">
-          <label>Existencias</label>
-          <input id="f-stock" type="number" inputmode="numeric" placeholder="∞ si vacío">
+          <label>Costo (lo que te cuesta)</label>
+          <input id="f-costo" type="number" inputmode="decimal" placeholder="Ej. 3000" oninput="recalc()">
         </div>
       </div>
       <div class="field">
@@ -182,7 +182,8 @@
       <div class="calc" id="calc"></div>
       <div class="field">
         <label>Video (liga de YouTube o Cloudinary)</label>
-        <input id="f-vid" placeholder="https://youtu.be/…" >
+        <input id="f-vid" placeholder="https://youtu.be/… o liga de Cloudinary" oninput="prevVid()">
+        <div id="vid-prev" style="margin-top:8px"></div>
         <span class="hint">Solo la liga. El video no se sube al sistema.</span>
       </div>
       <label class="toggle"><input type="checkbox" id="f-pub" checked> Mostrar en el catálogo público</label>
@@ -294,10 +295,10 @@ function abrirNuevo(){
   EDIT=null; FOTOS=[];
   document.getElementById('mtitle').textContent='Nuevo artículo';
   document.getElementById('btn-guardar').textContent='Guardar artículo';
-  ['f-nombre','f-sku','f-desc','f-pc','f-eng','f-stock','f-pcf','f-vid'].forEach(id=>document.getElementById(id).value='');
+  ['f-nombre','f-sku','f-desc','f-pc','f-eng','f-costo','f-pcf','f-vid'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('f-cat').value=CATS[0]||'Otros';
   document.getElementById('f-pub').checked=true;
-  pintarFotos(); recalc();
+  pintarFotos(); recalc(); prevVid();
   document.getElementById('ov').classList.add('on');
 }
 async function editar(id){
@@ -310,12 +311,12 @@ async function editar(id){
   document.getElementById('f-cat').value=a.categoria||'Otros';
   document.getElementById('f-desc').value=a.descripcion||'';
   document.getElementById('f-pc').value=a.precioContado||'';
+  document.getElementById('f-costo').value=a.costo||'';
   document.getElementById('f-eng').value=a.engancheMinPct||'';
-  document.getElementById('f-stock').value=a.stock==null?'':a.stock;
   document.getElementById('f-pcf').value=a.precioCreditoFijo||'';
   document.getElementById('f-vid').value=a.videoUrl||'';
   document.getElementById('f-pub').checked=a.publico!==false;
-  pintarFotos(); recalc();
+  pintarFotos(); recalc(); prevVid();
   document.getElementById('ov').classList.add('on');
   // cargar fotos existentes (por separado, no bloquea)
   if(a.tieneFoto || a.nFotos){
@@ -382,23 +383,52 @@ function recalc(){
   const f=factores[TARIFAS_PLAZO], fj=fijos[TARIFAS_PLAZO], np=pagosN[TARIFAS_PLAZO];
   const totalCred = pcf>0 ? pcf : Math.round(pc*f+fj);
   const sem=Math.round(totalCred/np);
+  // Utilidad: se mide contra el PRECIO DE CONTADO (el crédito es financiamiento, no ganancia real).
+  const costo=+document.getElementById('f-costo').value||0;
+  let util='';
+  if(costo>0){
+    const gan=pc-costo;
+    const margen=pc>0?Math.round(gan/pc*100):0;
+    const col=gan>0?'var(--grn)':'var(--red)';
+    util=`<div style="border-top:1px dashed var(--line);margin-top:8px;padding-top:8px">Costo <b>${money(costo)}</b> · Venta contado <b>${money(pc)}</b> · Utilidad <b style="color:${col}">${money(gan)} (${margen}%)</b></div>`;
+  }
   el.innerHTML=`Enganche mínimo: <b>${money(engMin)}</b> · financia <b>${money(financiado)}</b><br>
-    A crédito (${np} sem): <b>${money(totalCred)}</b> · pago semanal ≈ <b>${money(sem)}</b>${pcf>0?' · <b style="color:var(--blu)">precio fijo</b>':''}`;
+    A crédito (${np} sem): <b>${money(totalCred)}</b> · pago semanal ≈ <b>${money(sem)}</b>${pcf>0?' · <b style="color:var(--blu)">precio fijo</b>':''}${util}`;
 }
 
+function embedUrl(u){
+  if(!u) return null;
+  var m=u.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/))([\w-]{11})/);
+  if(m) return 'https://www.youtube.com/embed/'+m[1];
+  m=u.match(/vimeo\.com\/(\d+)/);
+  if(m) return 'https://player.vimeo.com/video/'+m[1];
+  if(/\.(mp4|webm|mov)(\?|$)/i.test(u)) return u;
+  return null;
+}
+function prevVid(){
+  var u=document.getElementById('f-vid').value.trim();
+  var box=document.getElementById('vid-prev');
+  if(!u){ box.innerHTML=''; return; }
+  var emb=embedUrl(u);
+  if(!emb){ box.innerHTML='<div style="font-size:.74rem;color:var(--red)">⚠ No reconozco este enlace. Usa YouTube, Vimeo o un .mp4 directo.</div>'; return; }
+  if(/\.(mp4|webm|mov)(\?|$)/i.test(emb)){
+    box.innerHTML='<video src="'+emb+'" controls style="width:100%;max-height:180px;border-radius:8px;background:#000"></video>';
+  } else {
+    box.innerHTML='<div style="position:relative;padding-bottom:56%;height:0;border-radius:8px;overflow:hidden"><iframe src="'+emb+'" style="position:absolute;inset:0;width:100%;height:100%;border:0" allowfullscreen></iframe></div><div style="font-size:.72rem;color:var(--grn);margin-top:4px">✓ Video reconocido</div>';
+  }
+}
 async function guardar(){
   const nombre=document.getElementById('f-nombre').value.trim();
   const pc=+document.getElementById('f-pc').value||0;
   if(!nombre) return toast('El artículo necesita nombre', true);
   if(!(pc>0)) return toast('El precio de contado debe ser mayor a cero', true);
-  const stockRaw=document.getElementById('f-stock').value.trim();
   const body={
     nombre, sku:document.getElementById('f-sku').value.trim(),
     categoria:document.getElementById('f-cat').value,
     descripcion:document.getElementById('f-desc').value.trim(),
     precioContado:pc,
+    costo:+document.getElementById('f-costo').value||0,
     engancheMinPct:+document.getElementById('f-eng').value||0,
-    stock: stockRaw===''? '' : (+stockRaw||0),
     precioCreditoFijo:+document.getElementById('f-pcf').value||0,
     videoUrl:document.getElementById('f-vid').value.trim(),
     publico:document.getElementById('f-pub').checked
