@@ -4653,6 +4653,53 @@ app.post('/api/inventario/traspaso', auth, rol('admin', 'supervisor'), (req, res
   res.json({ ok: true, articulo: art.nombre });
 });
 
+/* Actualización masiva de precios (por margen sobre costo, o % sobre precio actual) */
+app.post('/api/inventario/precios-masivo', auth, rol('admin', 'supervisor'), (req, res) => {
+  const { modo, valor, categoria, redondeo, soloPreview } = req.body || {};
+  const v = +valor;
+  if (!isFinite(v)) return res.status(400).json({ error: 'Valor inválido' });
+  if (!['margen', 'incremento'].includes(modo)) return res.status(400).json({ error: 'Modo inválido' });
+  const redA = n => {
+    if (redondeo === '10') return Math.round(n / 10) * 10;
+    if (redondeo === '50') return Math.round(n / 50) * 50;
+    if (redondeo === '99') return Math.max(0, Math.round(n / 100) * 100 - 1);   // termina en 99
+    return Math.round(n);
+  };
+  let objetivo = (db.catalogo || []).filter(a => a.activo !== false);
+  if (categoria && categoria !== '__todas__') objetivo = objetivo.filter(a => a.categoria === categoria);
+
+  const cambios = [];
+  for (const a of objetivo) {
+    const antes = +a.precioContado || 0;
+    let nuevo = antes;
+    if (modo === 'margen') {
+      const costo = +a.costo || 0;
+      if (!(costo > 0)) { cambios.push({ id: a.id, nombre: a.nombre, sku: a.sku || '', antes, nuevo: antes, omitido: 'sin costo' }); continue; }
+      nuevo = redA(costo * (1 + v / 100));   // precio = costo + margen%
+    } else {
+      nuevo = redA(antes * (1 + v / 100));    // sube el precio actual v%
+    }
+    cambios.push({ id: a.id, nombre: a.nombre, sku: a.sku || '', categoria: a.categoria, costo: +a.costo || 0, antes, nuevo, dif: nuevo - antes });
+  }
+
+  // Vista previa: no toca nada
+  if (soloPreview) {
+    const aplicables = cambios.filter(c => !c.omitido);
+    return res.json({ preview: true, total: aplicables.length, omitidos: cambios.filter(c => c.omitido).length, cambios });
+  }
+
+  // Aplicar
+  let n = 0;
+  for (const c of cambios) {
+    if (c.omitido) continue;
+    const a = db.catalogo.find(x => x.id === c.id);
+    if (a && a.precioContado !== c.nuevo) { a.precioContado = c.nuevo; n++; }
+  }
+  logOp('precios_masivo', 'bulk', { modo, valor: v, categoria: categoria || 'todas', redondeo: redondeo || 'entero', afectados: n, por: req.user.nombre });
+  saveDB();
+  res.json({ ok: true, afectados: n });
+});
+
 /* Kardex de un artículo: historial de movimientos desde el oplog */
 app.get('/api/inventario/:id/kardex', auth, rol('admin', 'supervisor', 'sucursal'), async (req, res) => {
   const art = (db.catalogo || []).find(a => a.id === +req.params.id);
