@@ -4648,21 +4648,51 @@ app.get('/api/inventario', auth, rol('admin', 'supervisor', 'sucursal'), (req, r
   const scope = (req.user.rol === 'sucursal') ? Number(req.user.sucursalId || 0) : null;
   const sucs = db.sucursales.map(x => ({ id: x.id, nombre: x.nombre }));
   const umbral = 2;   // alerta si quedan <= 2
+  const sucList = scope != null ? sucs.filter(x => x.id === scope) : sucs;
+  // Acumuladores por sucursal
+  const porSucAgg = {}; sucList.forEach(su => porSucAgg[su.id] = { unidades: 0, costo: 0, venta: 0 });
   const arts = (db.catalogo || []).filter(a => a.activo !== false).map(a => {
     _existMigra(a);
     const e = _existMap(a);
     const porSuc = {}; let total = 0;
-    (scope != null ? [{ id: scope }] : sucs).forEach(su => { const q = +(e[String(su.id)] || 0); porSuc[su.id] = q; total += q; });
+    sucList.forEach(su => {
+      const q = +(e[String(su.id)] || 0);
+      porSuc[su.id] = q; total += q;
+      porSucAgg[su.id].unidades += q;
+      porSucAgg[su.id].costo += q * (a.costo || 0);
+      porSucAgg[su.id].venta += q * (a.precioContado || 0);
+    });
     return {
       id: a.id, sku: a.sku || '', nombre: a.nombre, categoria: a.categoria,
       costo: a.costo || 0, precioContado: a.precioContado || 0,
-      porSuc, total, valorCosto: Math.round((a.costo || 0) * total),
+      porSuc, total,
+      valorCosto: Math.round((a.costo || 0) * total),
+      valorVenta: Math.round((a.precioContado || 0) * total),
+      utilidad: Math.round(((a.precioContado || 0) - (a.costo || 0)) * total),
       agotado: total <= 0, bajo: total > 0 && total <= umbral, tieneFoto: !!a.foto
     };
   });
-  const valorTotal = arts.reduce((s, a) => s + a.valorCosto, 0);
+  const valorCostoTotal = arts.reduce((s, a) => s + a.valorCosto, 0);
+  const valorVentaTotal = arts.reduce((s, a) => s + a.valorVenta, 0);
   const alertas = arts.filter(a => a.agotado || a.bajo).length;
-  res.json({ sucursales: scope != null ? sucs.filter(s => s.id === scope) : sucs, articulos: arts, valorInventario: valorTotal, alertas, umbral });
+  const unidadesTotal = arts.reduce((s, a) => s + a.total, 0);
+  // Resumen por sucursal
+  const resumenSuc = sucList.map(su => ({
+    id: su.id, nombre: su.nombre,
+    unidades: porSucAgg[su.id].unidades,
+    valorCosto: Math.round(porSucAgg[su.id].costo),
+    valorVenta: Math.round(porSucAgg[su.id].venta),
+    utilidad: Math.round(porSucAgg[su.id].venta - porSucAgg[su.id].costo)
+  }));
+  res.json({
+    sucursales: sucList, articulos: arts, umbral, alertas,
+    unidadesTotal,
+    valorInventario: valorCostoTotal,       // compat: valor a costo
+    valorCostoTotal, valorVentaTotal,
+    utilidadPotencial: valorVentaTotal - valorCostoTotal,
+    resumenSucursal: resumenSuc,
+    generado: new Date().toISOString()
+  });
 });
 
 /* Entrada de mercancía: suma existencias a una sucursal y registra costo */
