@@ -91,10 +91,13 @@
   <div class="toolbar">
     <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="q" placeholder="Buscar artículo o SKU…" oninput="render()"></div>
     <select class="filter" id="fest" onchange="render()"><option value="">Todos</option><option value="alerta">Solo alertas</option><option value="agot">Agotados</option></select>
+    <button class="btn" onclick="imprimir()">🖨 Imprimir</button>
+    <button class="btn" onclick="exportarExcel()">📊 Excel</button>
     <button class="btn" onclick="abrirPrecios()">💲 Actualizar precios</button>
     <button class="btn pri" onclick="abrirEntrada()">+ Entrada de mercancía</button>
   </div>
 
+  <div id="resumen-suc"></div>
   <div id="cont"><div class="loading"><div class="spin"></div>Cargando inventario…</div></div>
 </div>
 
@@ -105,7 +108,7 @@
 const TOKEN=(()=>{try{return localStorage.getItem('mueblepro_token')}catch(e){return null}})();
 const ME=(()=>{try{return JSON.parse(localStorage.getItem('mueblepro_user')||'null')}catch(e){return null}})();
 if(!TOKEN){ location.replace('index.html'); }
-let SUCS=[], DATA=[];
+let SUCS=[], DATA=[], RESUMEN=null, FULL=null;
 
 async function api(method,path,body){
   const r=await fetch(path,{method,headers:{'Content-Type':'application/json',Authorization:'Bearer '+TOKEN},body:body?JSON.stringify(body):undefined});
@@ -121,7 +124,7 @@ function toast(m,e){const t=document.getElementById('toast');t.textContent=m;t.c
 async function cargar(){
   try{
     const d=await api('GET','/api/inventario');
-    SUCS=d.sucursales||[]; DATA=d.articulos||[];
+    SUCS=d.sucursales||[]; DATA=d.articulos||[]; RESUMEN=d.resumenSucursal||[]; FULL=d;
     document.getElementById('k-arts').textContent=DATA.length;
     document.getElementById('k-valor').textContent=money(d.valorInventario);
     // utilidad potencial: si vendieras todo el stock de contado
@@ -129,7 +132,7 @@ async function cargar(){
     const kU=document.getElementById('k-util'); if(kU) kU.textContent=money(utilPot);
     document.getElementById('k-alert').textContent=d.alertas;
     document.getElementById('sub').textContent=`${SUCS.length} sucursal${SUCS.length!==1?'es':''} · umbral de alerta ≤ ${d.umbral}`;
-    render();
+    render(); pintarResumen();
   }catch(e){ document.getElementById('cont').innerHTML=`<div class="empty">${e.message}</div>`; }
 }
 
@@ -297,6 +300,84 @@ async function pmAplicar(){
     cerrar(); cargar();
   }catch(e){ toast(e.message,true); btn.disabled=false; }
 }
+function pintarResumen(){
+  if(!FULL) return;
+  const el=document.getElementById('resumen-suc');
+  if(!RESUMEN.length || SUCS.length<=1){ el.innerHTML=''; return; }
+  const filas=RESUMEN.filter(s=>s.unidades>0).map(s=>`<tr>
+    <td><b>${esc(s.nombre)}</b></td><td class="n">${s.unidades}</td>
+    <td class="n">${money(s.valorCosto)}</td><td class="n">${money(s.valorVenta)}</td>
+    <td class="n" style="color:var(--grn);font-weight:600">${money(s.utilidad)}</td></tr>`).join('');
+  el.innerHTML=`<div style="background:var(--surf-1);border:1px solid var(--line);border-radius:13px;padding:14px 16px;margin-bottom:16px">
+    <div style="font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;color:var(--dim);margin-bottom:10px">Valor del inventario por sucursal</div>
+    <table style="width:100%;border-collapse:collapse;font-size:.86rem">
+      <thead><tr><th style="text-align:left;font-size:.66rem;color:var(--faint);padding:6px">SUCURSAL</th><th style="text-align:right;font-size:.66rem;color:var(--faint);padding:6px">UNIDADES</th><th style="text-align:right;font-size:.66rem;color:var(--faint);padding:6px">VALOR COSTO</th><th style="text-align:right;font-size:.66rem;color:var(--faint);padding:6px">VALOR VENTA</th><th style="text-align:right;font-size:.66rem;color:var(--faint);padding:6px">UTILIDAD</th></tr></thead>
+      <tbody>${filas}</tbody>
+      <tfoot><tr style="border-top:2px solid var(--line);font-weight:700"><td style="padding:8px 6px">TOTAL</td><td class="n" style="padding:8px 6px">${FULL.unidadesTotal}</td><td class="n" style="padding:8px 6px">${money(FULL.valorCostoTotal)}</td><td class="n" style="padding:8px 6px">${money(FULL.valorVentaTotal)}</td><td class="n" style="padding:8px 6px;color:var(--grn)">${money(FULL.utilidadPotencial)}</td></tr></tfoot>
+    </table></div>`;
+}
+
+function imprimir(){
+  if(!FULL) return;
+  const fecha=new Date().toLocaleDateString('es-MX',{day:'2-digit',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  const marca=(()=>{try{return (JSON.parse(localStorage.getItem('mueblepro_brand')||'{}').nombre)||'MueblePro'}catch(e){return 'MueblePro'}})();
+  const sucCols=SUCS.map(s=>`<th class="r">${esc(s.nombre)}</th>`).join('');
+  const filas=DATA.map(a=>{
+    const cols=SUCS.map(s=>`<td class="r">${a.porSuc[s.id]||0}</td>`).join('');
+    return `<tr><td>${esc(a.nombre)}<br><small>${esc(a.sku)||''}</small></td><td class="r">${money(a.costo)}</td><td class="r">${money(a.precioContado)}</td>${cols}<td class="r"><b>${a.total}</b></td><td class="r">${money(a.valorCosto)}</td><td class="r">${money(a.valorVenta)}</td></tr>`;
+  }).join('');
+  const resSuc=RESUMEN.filter(s=>s.unidades>0).map(s=>`<tr><td>${esc(s.nombre)}</td><td class="r">${s.unidades}</td><td class="r">${money(s.valorCosto)}</td><td class="r">${money(s.valorVenta)}</td><td class="r">${money(s.utilidad)}</td></tr>`).join('');
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Inventario ${marca}</title><style>
+    body{font-family:Arial,sans-serif;color:#1b2330;padding:22px;max-width:1000px;margin:auto;font-size:12px}
+    h1{font-size:18px;margin:0}.sub{color:#5b6675;font-size:12px;margin:3px 0 16px}
+    .kpis{display:flex;gap:14px;margin-bottom:18px;flex-wrap:wrap}
+    .k{border:1px solid #dde3ec;border-radius:8px;padding:10px 14px;min-width:140px}
+    .k .l{font-size:10px;color:#97a2b2;text-transform:uppercase}.k .v{font-size:17px;font-weight:700;margin-top:2px}
+    table{width:100%;border-collapse:collapse;margin-bottom:20px}
+    th,td{border-bottom:1px solid #dde3ec;padding:6px 8px;text-align:left}
+    th{background:#eef2f8;font-size:9.5px;text-transform:uppercase}.r{text-align:right}
+    tfoot td{font-weight:700;border-top:2px solid #999}small{color:#97a2b2}
+    h2{font-size:13px;margin:16px 0 8px}@media print{button{display:none}}</style></head><body>
+    <h1>${marca} · Reporte de inventario</h1>
+    <div class="sub">Generado el ${fecha}</div>
+    <div class="kpis">
+      <div class="k"><div class="l">Unidades</div><div class="v">${FULL.unidadesTotal}</div></div>
+      <div class="k"><div class="l">Valor a costo</div><div class="v">${money(FULL.valorCostoTotal)}</div></div>
+      <div class="k"><div class="l">Valor a venta</div><div class="v">${money(FULL.valorVentaTotal)}</div></div>
+      <div class="k"><div class="l">Utilidad potencial</div><div class="v" style="color:#178a55">${money(FULL.utilidadPotencial)}</div></div>
+    </div>
+    ${resSuc?`<h2>Por sucursal</h2><table><thead><tr><th>Sucursal</th><th class="r">Unidades</th><th class="r">Costo</th><th class="r">Venta</th><th class="r">Utilidad</th></tr></thead><tbody>${resSuc}</tbody></table>`:''}
+    <h2>Detalle de artículos</h2>
+    <table><thead><tr><th>Artículo</th><th class="r">Costo</th><th class="r">Venta</th>${sucCols}<th class="r">Total</th><th class="r">Val. costo</th><th class="r">Val. venta</th></tr></thead><tbody>${filas}</tbody></table>
+    <button onclick="window.print()" style="padding:8px 16px;font-size:13px;cursor:pointer">🖨 Imprimir</button>
+    </body></html>`;
+  const w=window.open('','_blank'); if(!w){ toast('Permite ventanas emergentes',true); return; }
+  w.document.write(html); w.document.close();
+}
+
+function exportarExcel(){
+  if(!FULL) return;
+  // CSV con BOM para que Excel abra acentos bien
+  const q=s=>'"'+String(s==null?'':s).replace(/"/g,'""')+'"';
+  const sucH=SUCS.map(s=>q(s.nombre));
+  let csv=['\ufeff'+['Artículo','SKU','Categoría','Costo','Precio venta',...sucH,'Total unidades','Valor costo','Valor venta','Utilidad'].map(q).join(',')];
+  DATA.forEach(a=>{
+    const cols=SUCS.map(s=>a.porSuc[s.id]||0);
+    csv.push([a.nombre,a.sku,a.categoria,a.costo,a.precioContado,...cols,a.total,a.valorCosto,a.valorVenta,a.utilidad].map(q).join(','));
+  });
+  csv.push('');
+  csv.push([q('RESUMEN POR SUCURSAL')].join(','));
+  csv.push(['Sucursal','Unidades','Valor costo','Valor venta','Utilidad'].map(q).join(','));
+  RESUMEN.forEach(s=>csv.push([s.nombre,s.unidades,s.valorCosto,s.valorVenta,s.utilidad].map(q).join(',')));
+  csv.push(['TOTAL',FULL.unidadesTotal,FULL.valorCostoTotal,FULL.valorVentaTotal,FULL.utilidadPotencial].map(q).join(','));
+  const blob=new Blob([csv.join('\n')],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download='inventario_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click(); URL.revokeObjectURL(url);
+  toast('Descargando Excel…');
+}
+
 function cerrar(){ document.getElementById('ov').classList.remove('on'); }
 document.getElementById('ov').addEventListener('click',e=>{ if(e.target.id==='ov') cerrar(); });
 cargar();
