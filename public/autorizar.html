@@ -141,7 +141,7 @@ function ventaHTML(v){
         <select id="cob-${v.id}">${cobOpts}</select>
       </div>
       <div class="acts">
-        <button class="btn" style="flex:none;padding:13px 14px" onclick="window.open('comprobante.html?id='+${v.id},'_blank')" title="Comprobante">📄</button>
+        <button class="btn" style="flex:none;padding:13px 14px" onclick="location.href=('comprobante.html?id='+${v.id},'_blank')" title="Comprobante">📄</button>
         <button class="btn btn-no" onclick="rechazar(${v.id},'${esc(v.folio)}')">Rechazar</button>
         <button class="btn btn-ok" onclick="autorizar(${v.id})">Autorizar venta</button>
       </div>
